@@ -1,0 +1,353 @@
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import '../../../config/colors.dart';
+import '../../../shared/widgets/widgets.dart';
+import '../services/goods_service.dart';
+
+enum _ScanState { idle, scanning, result }
+
+class ReceiptScanScreen extends ConsumerStatefulWidget {
+  const ReceiptScanScreen({super.key});
+
+  @override
+  ConsumerState<ReceiptScanScreen> createState() => _ReceiptScanScreenState();
+}
+
+class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
+  XFile? _photo;
+  Uint8List? _photoBytes;
+  _ScanState _state = _ScanState.idle;
+
+  // Extracted data fields
+  final _storeNameController = TextEditingController();
+  final _totalAmountController = TextEditingController();
+  DateTime? _purchasedAt;
+  final List<_ExtractedItem> _items = [];
+
+  @override
+  void dispose() {
+    _storeNameController.dispose();
+    _totalAmountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _takePhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1080,
+      imageQuality: 90,
+    );
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _photo = picked;
+        _photoBytes = bytes;
+        _state = _ScanState.scanning;
+      });
+      await _processReceipt();
+    }
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      imageQuality: 90,
+    );
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _photo = picked;
+        _photoBytes = bytes;
+        _state = _ScanState.scanning;
+      });
+      await _processReceipt();
+    }
+  }
+
+  Future<void> _processReceipt() async {
+    // TODO: Call Supabase Edge Function → Gemini Vision API
+    // For now, simulate with a delay
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (mounted) {
+      setState(() {
+        _state = _ScanState.result;
+        // Simulated extracted data
+        _storeNameController.text = '';
+        _totalAmountController.text = '';
+        _purchasedAt = DateTime.now();
+        _items.clear();
+      });
+    }
+  }
+
+  Future<void> _saveAsGoods() async {
+    final service = ref.read(goodsServiceProvider);
+
+    try {
+      // Upload receipt photo
+      String? photoUrl;
+      if (_photo != null) {
+        photoUrl =
+            await service.uploadPhoto(
+                _photoBytes!, _photo!.name, bucket: 'receipt-photos');
+      }
+
+      // Save each item as goods
+      for (final item in _items) {
+        if (item.name.isNotEmpty) {
+          await service.createGoods(
+            name: item.name,
+            price: item.price,
+            purchasedAt: _purchasedAt,
+          );
+        }
+      }
+
+      // If no items, save as single entry
+      if (_items.isEmpty) {
+        final amount =
+            int.tryParse(_totalAmountController.text.replaceAll(',', ''));
+        await service.createGoods(
+          name: _storeNameController.text.isNotEmpty
+              ? '${_storeNameController.text} 구매'
+              : '영수증 구매',
+          price: amount,
+          purchasedAt: _purchasedAt,
+          photoUrls: photoUrl != null ? [photoUrl] : [],
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('저장되었어요!')),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장에 실패했어요: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('영수증 촬영'),
+        leading: IconButton(
+          icon: const Icon(PhosphorIconsBold.x),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: switch (_state) {
+        _ScanState.idle => _buildIdleState(),
+        _ScanState.scanning => _buildScanningState(),
+        _ScanState.result => _buildResultState(),
+      },
+    );
+  }
+
+  Widget _buildIdleState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Duck with magnifying glass
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                color: DuckColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: DuckColors.outline, width: 3),
+              ),
+              child: const Center(
+                child: Text('🔍🐥', style: TextStyle(fontSize: 48)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '영수증을 촬영하면\n자동으로 인식해요!',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: DuckColors.textSub,
+                  ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: DuckButton(
+                text: '카메라로 촬영',
+                icon: PhosphorIconsBold.camera,
+                onPressed: _takePhoto,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: DuckButton(
+                text: '갤러리에서 선택',
+                icon: PhosphorIconsBold.images,
+                isOutlined: true,
+                onPressed: _pickPhoto,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScanningState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Duck searching animation placeholder
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: DuckColors.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: DuckColors.outline, width: 3),
+            ),
+            child: const Center(
+              child: Text('🔍🐥', style: TextStyle(fontSize: 48)),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const CircularProgressIndicator(color: DuckColors.primary),
+          const SizedBox(height: 16),
+          Text(
+            '영수증을 인식하고 있어요...',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: DuckColors.textSub,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultState() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        // Receipt image preview
+        if (_photoBytes != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.memory(
+              _photoBytes!,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+        const SizedBox(height: 20),
+
+        Text(
+          '인식 결과를 확인해주세요',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '잘못된 정보가 있으면 수정할 수 있어요.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 20),
+
+        DuckTextField(
+          label: '매장명',
+          hint: '매장 이름',
+          controller: _storeNameController,
+        ),
+        const SizedBox(height: 16),
+
+        DuckTextField(
+          label: '총 금액',
+          hint: '0',
+          controller: _totalAmountController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          prefix: const Padding(
+            padding: EdgeInsets.only(left: 16),
+            child: Icon(PhosphorIconsBold.currencyKrw, size: 18),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Items
+        if (_items.isNotEmpty) ...[
+          Text('품목', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          ..._items.asMap().entries.map((entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: DuckCard(
+                  margin: EdgeInsets.zero,
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(entry.value.name)),
+                      Text(
+                        entry.value.price != null
+                            ? '${entry.value.price}원'
+                            : '-',
+                      ),
+                    ],
+                  ),
+                ),
+              )),
+          const SizedBox(height: 8),
+        ],
+
+        const SizedBox(height: 24),
+
+        SizedBox(
+          width: double.infinity,
+          child: DuckButton(
+            text: '저장하기',
+            onPressed: _saveAsGoods,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: DuckButton(
+            text: '다시 촬영',
+            isOutlined: true,
+            onPressed: () {
+              setState(() {
+                _photo = null;
+                _photoBytes = null;
+                _state = _ScanState.idle;
+                _items.clear();
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtractedItem {
+  final String name;
+  final int? price;
+  final int? quantity;
+
+  _ExtractedItem({required this.name, this.price, this.quantity});
+}
