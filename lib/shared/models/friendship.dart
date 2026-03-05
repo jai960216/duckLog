@@ -4,7 +4,7 @@ class Friendship {
   final String id;
   final String requesterId;
   final String receiverId;
-  final String status; // pending / accepted / rejected
+  final String status; // pending / accepted
   final DateTime createdAt;
 
   // Transient: from joins
@@ -28,6 +28,12 @@ class Friendship {
       receiverId: json['receiver_id'] as String,
       status: json['status'] as String? ?? 'pending',
       createdAt: DateTime.parse(json['created_at'] as String),
+      requesterProfile: json['requester'] != null
+          ? Profile.fromJson(json['requester'] as Map<String, dynamic>)
+          : null,
+      receiverProfile: json['receiver'] != null
+          ? Profile.fromJson(json['receiver'] as Map<String, dynamic>)
+          : null,
     );
   }
 

@@ -117,13 +117,16 @@ class _GoodsListScreenState extends ConsumerState<GoodsListScreen> {
                   itemBuilder: (context, index) {
                     return GoodsCard(
                       goods: goods[index],
-                      onTap: () {
-                        Navigator.of(context).push(
+                      onTap: () async {
+                        final result = await Navigator.of(context).push<bool>(
                           MaterialPageRoute(
                             builder: (_) =>
                                 GoodsDetailScreen(goodsId: goods[index].id),
                           ),
                         );
+                        if (result == true) {
+                          ref.invalidate(goodsListProvider(_filter));
+                        }
                       },
                     );
                   },

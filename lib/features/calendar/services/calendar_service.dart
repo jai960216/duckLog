@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/followed_work.dart';
 import '../../../shared/models/calendar_event.dart';
 import '../../auth/services/auth_service.dart';
+import 'anilist_service.dart';
 
 final calendarServiceProvider = Provider<CalendarService>((ref) {
   return CalendarService(ref.read(supabaseClientProvider));
@@ -46,6 +47,107 @@ final workEventsProvider =
   },
 );
 
+/// 캘린더 표시용 일정 (애니 방영 + 게임 출시)
+class AiringEntry {
+  final String title;
+  final String workType; // anime or game
+  final String externalId;
+  final int? episode;
+  final DateTime airingDate;
+  final String eventType; // airing or release
+
+  const AiringEntry({
+    required this.title,
+    required this.workType,
+    required this.externalId,
+    this.episode,
+    required this.airingDate,
+    required this.eventType,
+  });
+
+  String get displayTitle {
+    if (eventType == 'airing' && episode != null) return '$title $episode화';
+    if (eventType == 'release') return '$title 출시';
+    return title;
+  }
+
+  bool get isAnime => workType == 'anime';
+  bool get isGame => workType == 'game';
+}
+
+/// 팔로우한 작품의 일정 (애니 방영 + 게임 출시, 월별)
+final monthAiringScheduleProvider =
+    FutureProvider.autoDispose.family<List<AiringEntry>, String>(
+  (ref, monthKey) async {
+    final parts = monthKey.split('-');
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final startDate = DateTime(year, month, 1);
+    final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    List<FollowedWork> followedWorks;
+    try {
+      followedWorks = await ref.watch(followedWorksProvider.future);
+    } catch (_) {
+      return [];
+    }
+
+    final anilistService = ref.read(anilistServiceProvider);
+    final entries = <AiringEntry>[];
+
+    for (final work in followedWorks) {
+      // ── 애니: AniList 방영 스케줄 ──
+      if (work.workType == 'anime') {
+        final mediaId = int.tryParse(work.externalId);
+        if (mediaId == null) continue;
+
+        try {
+          final schedules = await anilistService.getAiringSchedule(mediaId);
+          for (final schedule in schedules) {
+            final date = schedule.airingDateTime;
+            if (!date.isBefore(startDate) && !date.isAfter(endDate)) {
+              entries.add(AiringEntry(
+                title: work.title,
+                workType: work.workType,
+                externalId: work.externalId,
+                episode: schedule.episode,
+                airingDate: date,
+                eventType: 'airing',
+              ));
+            }
+          }
+        } catch (_) {}
+        continue;
+      }
+
+      // ── 게임: IGDB 출시일 (followed_works에 저장된 externalId로는
+      //    IGDB API를 다시 호출해야 하므로, Supabase calendar_events에서 조회) ──
+      if (work.workType == 'game') {
+        try {
+          final calendarService = ref.read(calendarServiceProvider);
+          final events =
+              await calendarService.getEventsForWork(work.externalId);
+          for (final event in events) {
+            final date = event.eventDate;
+            if (!date.isBefore(startDate) && !date.isAfter(endDate)) {
+              entries.add(AiringEntry(
+                title: work.title,
+                workType: work.workType,
+                externalId: work.externalId,
+                airingDate: date,
+                eventType: 'release',
+              ));
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    entries.sort((a, b) => a.airingDate.compareTo(b.airingDate));
+    return entries;
+  },
+);
+
 class CalendarService {
   final SupabaseClient _client;
 
@@ -62,12 +164,13 @@ class CalendarService {
     required String workType,
     required String title,
     String? coverUrl,
+    String? externalId,
   }) async {
-    final externalId = _slugify(title);
+    final effectiveExternalId = externalId ?? _slugify(title);
     final data = {
       'user_id': _userId,
       'work_type': workType,
-      'external_id': externalId,
+      'external_id': effectiveExternalId,
       'title': title,
       'cover_url': coverUrl,
       'notify': true,

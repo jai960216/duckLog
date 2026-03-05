@@ -299,13 +299,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: goods
                   .map((g) => GoodsCard(
                         goods: g,
-                        onTap: () {
-                          Navigator.of(context).push(
+                        onTap: () async {
+                          final result = await Navigator.of(context).push<bool>(
                             MaterialPageRoute(
                               builder: (_) =>
                                   GoodsDetailScreen(goodsId: g.id),
                             ),
                           );
+                          if (result == true) {
+                            ref.invalidate(goodsListProvider);
+                            ref.invalidate(monthlySpendingProvider);
+                          }
                         },
                       ))
                   .toList(),

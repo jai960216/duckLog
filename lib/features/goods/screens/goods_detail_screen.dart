@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../catalog/screens/catalog_detail_screen.dart';
+import '../../catalog/services/catalog_service.dart';
 import '../services/goods_service.dart';
 import 'goods_input_screen.dart';
 
@@ -168,6 +171,9 @@ class GoodsDetailScreen extends ConsumerWidget {
         _infoRow(context, PhosphorIconsBold.eye, '공개 범위',
             _visibilityLabel(goods.visibility)),
 
+        // Catalog link
+        if (goods.catalogItemId != null) _buildCatalogLink(context, goods),
+
         // Memo
         if (goods.memo != null && goods.memo!.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -196,6 +202,51 @@ class GoodsDetailScreen extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildCatalogLink(BuildContext context, Goods goods) {
+    return FutureBuilder(
+      future: CatalogService(Supabase.instance.client)
+          .getCatalogForItem(goods.catalogItemId!),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+        final (catalog, item, _) = snapshot.data!;
+        return GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    CatalogDetailScreen(catalogId: catalog.id),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                const Icon(PhosphorIconsBold.books,
+                    size: 18, color: DuckColors.primaryDark),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${catalog.name} > ${item.name}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: DuckColors.primaryDark,
+                          fontWeight: FontWeight.w500,
+                        ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(PhosphorIconsBold.caretRight,
+                    size: 14, color: DuckColors.textSub),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -243,9 +294,13 @@ class GoodsDetailScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // close dialog
               try {
                 await ref.read(goodsServiceProvider).deleteGoods(goods.id);
+                // Invalidate all goods-related providers
+                ref.invalidate(goodsListProvider);
+                ref.invalidate(monthlySpendingProvider);
+                ref.invalidate(goodsDetailProvider(goodsId));
                 if (context.mounted) {
                   Navigator.of(context).pop(true);
                 }

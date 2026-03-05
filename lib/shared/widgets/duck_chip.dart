@@ -7,6 +7,7 @@ class DuckChip extends StatelessWidget {
   final Color? textColor;
   final bool selected;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final IconData? icon;
 
   const DuckChip({
@@ -16,6 +17,7 @@ class DuckChip extends StatelessWidget {
     this.textColor,
     this.selected = false,
     this.onTap,
+    this.onLongPress,
     this.icon,
   });
 
@@ -27,6 +29,7 @@ class DuckChip extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(

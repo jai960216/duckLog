@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
-import '../../../shared/models/calendar_event.dart';
 import '../../../shared/models/followed_work.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/widgets.dart';
@@ -24,10 +23,42 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   String get _monthKey =>
       '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}';
 
+  Future<void> _confirmUnfollow(String id, String title) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('팔로우 해제'),
+        content: Text('\'$title\'을(를) 팔로우 해제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('해제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final service = ref.read(calendarServiceProvider);
+      await service.unfollowWork(id);
+      ref.invalidate(followedWorksProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('해제 실패: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final followedWorks = ref.watch(followedWorksProvider);
-    final monthEvents = ref.watch(monthEventsProvider(_monthKey));
+    final airingEntries = ref.watch(monthAiringScheduleProvider(_monthKey));
 
     return Column(
       children: [
@@ -47,6 +78,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       _selectedMonth.year,
                       _selectedMonth.month - 1,
                     );
+                    _selectedDate = null;
                   });
                 },
                 icon: const Icon(PhosphorIconsBold.caretLeft, size: 20),
@@ -62,6 +94,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       _selectedMonth.year,
                       _selectedMonth.month + 1,
                     );
+                    _selectedDate = null;
                   });
                 },
                 icon: const Icon(PhosphorIconsBold.caretRight, size: 20),
@@ -71,16 +104,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
 
         // Calendar grid
-        _buildCalendarGrid(monthEvents),
+        _buildCalendarGrid(airingEntries),
 
         const Divider(height: 1),
 
         // Events for selected date
         Expanded(
           child: _selectedDate != null
-              ? _buildEventsForDate(_selectedDate!, monthEvents)
+              ? _buildEventsForDate(_selectedDate!, airingEntries)
               : const DuckEmptyState(
-                  message: '날짜를 선택하면\n일정을 확인할 수 있어요.',
+                  message: '날짜를 선택하면\n방영 일정을 확인할 수 있어요.',
                   icon: PhosphorIconsBold.calendarBlank,
                 ),
         ),
@@ -100,8 +133,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             GestureDetector(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const WorkSearchScreen()),
+                MaterialPageRoute(builder: (_) => const WorkSearchScreen()),
               ),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -117,12 +149,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(PhosphorIconsBold.plus, size: 16,
-                        color: DuckColors.textSub),
+                    Icon(PhosphorIconsBold.plus,
+                        size: 16, color: DuckColors.textSub),
                     SizedBox(width: 4),
                     Text('작품 추가',
-                        style: TextStyle(
-                            fontSize: 13, color: DuckColors.textSub)),
+                        style:
+                            TextStyle(fontSize: 13, color: DuckColors.textSub)),
                   ],
                 ),
               ),
@@ -145,6 +177,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       builder: (_) => WorkDetailScreen(work: work),
                     ),
                   ),
+                  onLongPress: () => _confirmUnfollow(work.id, work.title),
                 ),
               );
             }),
@@ -160,22 +193,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  Widget _buildCalendarGrid(AsyncValue<List<CalendarEvent>> monthEvents) {
+  Widget _buildCalendarGrid(AsyncValue<List<AiringEntry>> airingEntries) {
     final firstDay = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
     final lastDay = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
     final startWeekday = firstDay.weekday % 7; // Sunday = 0
 
-    // Build a set of days that have events for fast lookup
-    final eventDays = <int>{};
-    final eventDayColors = <int, Set<String>>{}; // day -> set of workTypes
-    monthEvents.whenData((events) {
-      for (final event in events) {
-        if (event.eventDate.month == _selectedMonth.month &&
-            event.eventDate.year == _selectedMonth.year) {
-          eventDays.add(event.eventDate.day);
-          eventDayColors
-              .putIfAbsent(event.eventDate.day, () => {})
-              .add(event.workType);
+    // 이벤트가 있는 날짜 + 타입 추적
+    final eventDayTypes = <int, Set<String>>{}; // day -> {anime, game}
+    airingEntries.whenData((entries) {
+      for (final entry in entries) {
+        if (entry.airingDate.month == _selectedMonth.month &&
+            entry.airingDate.year == _selectedMonth.year) {
+          eventDayTypes
+              .putIfAbsent(entry.airingDate.day, () => {})
+              .add(entry.workType);
         }
       }
     });
@@ -191,14 +222,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       child: Center(
                         child: Text(
                           d,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: d == '일'
-                                        ? DuckColors.accent
-                                        : d == '토'
-                                            ? const Color(0xFF6B9FFF)
-                                            : DuckColors.textSub,
-                                  ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: d == '일'
+                                    ? DuckColors.accent
+                                    : d == '토'
+                                        ? const Color(0xFF6B9FFF)
+                                        : DuckColors.textSub,
+                              ),
                         ),
                       ),
                     ))
@@ -210,8 +243,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ...List.generate(6, (weekIndex) {
             return Row(
               children: List.generate(7, (dayIndex) {
-                final dayNum =
-                    weekIndex * 7 + dayIndex - startWeekday + 1;
+                final dayNum = weekIndex * 7 + dayIndex - startWeekday + 1;
                 if (dayNum < 1 || dayNum > lastDay.day) {
                   return const Expanded(child: SizedBox(height: 44));
                 }
@@ -225,8 +257,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 final isToday = date.year == DateTime.now().year &&
                     date.month == DateTime.now().month &&
                     date.day == DateTime.now().day;
-                final hasEvents = eventDays.contains(dayNum);
-                final dayWorkTypes = eventDayColors[dayNum] ?? {};
+                final dayTypes = eventDayTypes[dayNum] ?? {};
+                final hasEvents = dayTypes.isNotEmpty;
 
                 return Expanded(
                   child: GestureDetector(
@@ -238,7 +270,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         color: isSelected
                             ? DuckColors.primary
                             : isToday
-                                ? DuckColors.primaryLight.withValues(alpha: 0.3)
+                                ? DuckColors.primaryLight
+                                    .withValues(alpha: 0.3)
                                 : null,
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -261,7 +294,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (dayWorkTypes.contains('anime'))
+                                if (dayTypes.contains('anime'))
                                   Container(
                                     width: 5,
                                     height: 5,
@@ -272,7 +305,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                   ),
-                                if (dayWorkTypes.contains('game'))
+                                if (dayTypes.contains('game'))
                                   Container(
                                     width: 5,
                                     height: 5,
@@ -299,17 +332,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   Widget _buildEventsForDate(
-      DateTime date, AsyncValue<List<CalendarEvent>> monthEvents) {
-    return monthEvents.when(
-      data: (allEvents) {
-        final dayEvents = allEvents
+      DateTime date, AsyncValue<List<AiringEntry>> airingEntries) {
+    return airingEntries.when(
+      data: (allEntries) {
+        final dayEntries = allEntries
             .where((e) =>
-                e.eventDate.year == date.year &&
-                e.eventDate.month == date.month &&
-                e.eventDate.day == date.day)
+                e.airingDate.year == date.year &&
+                e.airingDate.month == date.month &&
+                e.airingDate.day == date.day)
             .toList();
 
-        if (dayEvents.isEmpty) {
+        if (dayEntries.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -323,7 +356,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '이 날에는 일정이 없어요.',
+                  '이 날에는 방영 일정이 없어요.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
@@ -334,10 +367,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: dayEvents.length,
+          itemCount: dayEntries.length,
           itemBuilder: (context, index) {
-            final event = dayEvents[index];
-            final isAnime = event.isAnime;
+            final entry = dayEntries[index];
 
             return DuckCard(
               child: Row(
@@ -347,7 +379,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     width: 4,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: isAnime ? DuckColors.sub : DuckColors.accent,
+                      color: entry.isAnime
+                          ? DuckColors.sub
+                          : DuckColors.accent,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -358,14 +392,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          event.displayTitle,
+                          entry.displayTitle,
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                         const SizedBox(height: 2),
                         Row(
                           children: [
                             Icon(
-                              isAnime
+                              entry.isAnime
                                   ? PhosphorIconsBold.television
                                   : PhosphorIconsBold.gameController,
                               size: 12,
@@ -373,7 +407,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              event.eventType == 'airing' ? '방영' : '발매',
+                              entry.isAnime ? '방영' : '출시',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -393,7 +427,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => Center(
         child: Text(
-          '${Formatters.date(date)}의 일정을 불러올 수 없어요.',
+          '일정을 불러올 수 없어요.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ),

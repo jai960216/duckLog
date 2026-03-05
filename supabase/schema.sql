@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS goods (
   purchased_at DATE,
   memo TEXT,
   visibility TEXT DEFAULT 'public',
+  catalog_item_id UUID REFERENCES catalog_items(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -89,6 +90,53 @@ CREATE TABLE IF NOT EXISTS friendships (
   UNIQUE(requester_id, receiver_id)
 );
 
+-- 도감
+CREATE TABLE IF NOT EXISTS catalogs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  work_tag TEXT,
+  cover_url TEXT,
+  visibility TEXT DEFAULT 'private',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 도감 캐릭터
+CREATE TABLE IF NOT EXISTS catalog_characters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  catalog_id UUID REFERENCES catalogs(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  photo_url TEXT,
+  external_id TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 도감 아이템
+CREATE TABLE IF NOT EXISTS catalog_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  catalog_id UUID REFERENCES catalogs(id) ON DELETE CASCADE,
+  character_id UUID REFERENCES catalog_characters(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  photo_url TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 도감 수집 현황
+CREATE TABLE IF NOT EXISTS catalog_collections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  catalog_id UUID REFERENCES catalogs(id) ON DELETE CASCADE,
+  catalog_item_id UUID REFERENCES catalog_items(id) ON DELETE CASCADE,
+  collected_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, catalog_item_id)
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -97,12 +145,20 @@ CREATE INDEX IF NOT EXISTS idx_goods_user_id ON goods(user_id);
 CREATE INDEX IF NOT EXISTS idx_goods_purchased_at ON goods(purchased_at);
 CREATE INDEX IF NOT EXISTS idx_goods_category ON goods(category);
 CREATE INDEX IF NOT EXISTS idx_goods_work_tag ON goods(work_tag);
+CREATE INDEX IF NOT EXISTS idx_goods_catalog_item_id ON goods(catalog_item_id);
 CREATE INDEX IF NOT EXISTS idx_receipts_user_id ON receipts(user_id);
 CREATE INDEX IF NOT EXISTS idx_followed_works_user_id ON followed_works(user_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
 CREATE INDEX IF NOT EXISTS idx_likes_goods_id ON likes(goods_id);
 CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
 CREATE INDEX IF NOT EXISTS idx_friendships_receiver ON friendships(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_catalogs_user_id ON catalogs(user_id);
+CREATE INDEX IF NOT EXISTS idx_catalogs_visibility ON catalogs(visibility);
+CREATE INDEX IF NOT EXISTS idx_catalog_characters_catalog_id ON catalog_characters(catalog_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_items_catalog_id ON catalog_items(catalog_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_items_character_id ON catalog_items(character_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_collections_user_id ON catalog_collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_collections_catalog_id ON catalog_collections(catalog_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY
@@ -173,6 +229,18 @@ CREATE POLICY "Anyone can read calendar events"
   ON calendar_events FOR SELECT
   USING (true);
 
+CREATE POLICY "Authenticated users can insert calendar events"
+  ON calendar_events FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Authenticated users can update calendar events"
+  ON calendar_events FOR UPDATE
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Authenticated users can delete calendar events"
+  ON calendar_events FOR DELETE
+  USING (auth.uid() IS NOT NULL);
+
 -- Likes
 ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
 
@@ -203,6 +271,136 @@ CREATE POLICY "Users can delete own friendship requests"
   ON friendships FOR DELETE
   USING (requester_id = auth.uid() OR receiver_id = auth.uid());
 
+-- Catalogs
+ALTER TABLE catalogs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own catalogs"
+  ON catalogs FOR ALL
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can view public catalogs"
+  ON catalogs FOR SELECT
+  USING (
+    visibility = 'public'
+    OR user_id = auth.uid()
+    OR (
+      visibility = 'friends'
+      AND EXISTS (
+        SELECT 1 FROM friendships
+        WHERE status = 'accepted'
+        AND (
+          (requester_id = auth.uid() AND receiver_id = catalogs.user_id)
+          OR (receiver_id = auth.uid() AND requester_id = catalogs.user_id)
+        )
+      )
+    )
+  );
+
+-- Catalog Characters
+ALTER TABLE catalog_characters ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage characters in own catalogs"
+  ON catalog_characters FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM catalogs
+      WHERE catalogs.id = catalog_characters.catalog_id
+      AND catalogs.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can view characters in visible catalogs"
+  ON catalog_characters FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM catalogs
+      WHERE catalogs.id = catalog_characters.catalog_id
+      AND (
+        catalogs.visibility = 'public'
+        OR catalogs.user_id = auth.uid()
+        OR (
+          catalogs.visibility = 'friends'
+          AND EXISTS (
+            SELECT 1 FROM friendships
+            WHERE status = 'accepted'
+            AND (
+              (requester_id = auth.uid() AND receiver_id = catalogs.user_id)
+              OR (receiver_id = auth.uid() AND requester_id = catalogs.user_id)
+            )
+          )
+        )
+      )
+    )
+  );
+
+-- Catalog Items
+ALTER TABLE catalog_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage items in own catalogs"
+  ON catalog_items FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM catalogs
+      WHERE catalogs.id = catalog_items.catalog_id
+      AND catalogs.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can view items in visible catalogs"
+  ON catalog_items FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM catalogs
+      WHERE catalogs.id = catalog_items.catalog_id
+      AND (
+        catalogs.visibility = 'public'
+        OR catalogs.user_id = auth.uid()
+        OR (
+          catalogs.visibility = 'friends'
+          AND EXISTS (
+            SELECT 1 FROM friendships
+            WHERE status = 'accepted'
+            AND (
+              (requester_id = auth.uid() AND receiver_id = catalogs.user_id)
+              OR (receiver_id = auth.uid() AND requester_id = catalogs.user_id)
+            )
+          )
+        )
+      )
+    )
+  );
+
+-- Catalog Collections
+ALTER TABLE catalog_collections ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own collections"
+  ON catalog_collections FOR ALL
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can view collections in visible catalogs"
+  ON catalog_collections FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM catalogs
+      WHERE catalogs.id = catalog_collections.catalog_id
+      AND (
+        catalogs.visibility = 'public'
+        OR catalogs.user_id = auth.uid()
+        OR (
+          catalogs.visibility = 'friends'
+          AND EXISTS (
+            SELECT 1 FROM friendships
+            WHERE status = 'accepted'
+            AND (
+              (requester_id = auth.uid() AND receiver_id = catalogs.user_id)
+              OR (receiver_id = auth.uid() AND requester_id = catalogs.user_id)
+            )
+          )
+        )
+      )
+    )
+  );
+
 -- ============================================
 -- STORAGE BUCKETS
 -- ============================================
@@ -211,7 +409,8 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES
   ('goods-photos', 'goods-photos', true),
   ('receipt-photos', 'receipt-photos', false),
-  ('avatars', 'avatars', true)
+  ('avatars', 'avatars', true),
+  ('catalog-photos', 'catalog-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies
@@ -250,6 +449,31 @@ CREATE POLICY "Users can upload avatars"
 CREATE POLICY "Anyone can view avatars"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'avatars');
+
+CREATE POLICY "Users can upload catalog photos"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'catalog-photos'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Anyone can view catalog photos"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'catalog-photos');
+
+CREATE POLICY "Users can update own catalog photos"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'catalog-photos'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can delete own catalog photos"
+  ON storage.objects FOR DELETE
+  USING (
+    bucket_id = 'catalog-photos'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
 
 -- ============================================
 -- FUNCTIONS

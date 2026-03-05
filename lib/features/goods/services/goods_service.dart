@@ -142,6 +142,7 @@ class GoodsService {
     DateTime? purchasedAt,
     String? memo,
     String visibility = 'public',
+    String? catalogItemId,
   }) async {
     final data = {
       'user_id': _userId,
@@ -154,6 +155,7 @@ class GoodsService {
       'purchased_at': purchasedAt?.toIso8601String().split('T').first,
       'memo': memo,
       'visibility': visibility,
+      'catalog_item_id': catalogItemId,
     };
 
     final response =

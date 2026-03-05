@@ -4,6 +4,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
+import '../services/friend_service.dart';
+import 'friend_list_screen.dart';
 import 'profile_edit_screen.dart';
 
 class MyPageScreen extends ConsumerWidget {
@@ -12,6 +14,7 @@ class MyPageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(currentProfileProvider);
+    final pendingAsync = ref.watch(pendingCountProvider);
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -123,14 +126,7 @@ class MyPageScreen extends ConsumerWidget {
         const SizedBox(height: 16),
 
         _menuSection(context, '소셜', [
-          _menuItem(
-            context,
-            icon: PhosphorIconsBold.users,
-            label: '친구 관리',
-            onTap: () {
-              // TODO: Navigate to friends
-            },
-          ),
+          _friendMenuItem(context, ref, pendingAsync),
           _menuItem(
             context,
             icon: PhosphorIconsBold.shareNetwork,
@@ -198,6 +194,48 @@ class MyPageScreen extends ConsumerWidget {
 
         const SizedBox(height: 80),
       ],
+    );
+  }
+
+  Widget _friendMenuItem(
+      BuildContext context, WidgetRef ref, AsyncValue<int> pendingAsync) {
+    final pendingCount = pendingAsync.valueOrNull ?? 0;
+
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const FriendListScreen()),
+        );
+      },
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const Icon(PhosphorIconsBold.users,
+                size: 20, color: DuckColors.text),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                '친구 관리',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            if (pendingCount > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: DuckColors.error,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            const Icon(PhosphorIconsBold.caretRight,
+                size: 14, color: DuckColors.textSub),
+          ],
+        ),
+      ),
     );
   }
 

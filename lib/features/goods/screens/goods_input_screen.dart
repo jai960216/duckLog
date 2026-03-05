@@ -6,7 +6,9 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../catalog/services/catalog_service.dart';
 import '../services/goods_service.dart';
+import '../widgets/catalog_item_picker.dart';
 
 class GoodsInputScreen extends ConsumerStatefulWidget {
   final Goods? existingGoods; // null = create, non-null = edit
@@ -32,6 +34,12 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
   final List<XFile> _newPhotos = [];
   bool _isLoading = false;
 
+  // Catalog linking
+  String? _linkedCatalogItemId;
+  String? _linkedCatalogId;
+  String? _linkedItemName;
+  String? _linkedCatalogName;
+
   bool get _isEditing => widget.existingGoods != null;
 
   @override
@@ -48,6 +56,10 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
       _purchasedAt = g.purchasedAt;
       _visibility = g.visibility;
       _photoUrls.addAll(g.photoUrls);
+      if (g.catalogItemId != null) {
+        _linkedCatalogItemId = g.catalogItemId;
+        _loadLinkedCatalogInfo(g.catalogItemId!);
+      }
     }
   }
 
@@ -59,6 +71,71 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
     _artistTagController.dispose();
     _memoController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLinkedCatalogInfo(String itemId) async {
+    try {
+      final catalogService = ref.read(catalogServiceProvider);
+      final result = await catalogService.getCatalogForItem(itemId);
+      if (result != null && mounted) {
+        setState(() {
+          _linkedCatalogId = result.$1.id;
+          _linkedCatalogName = result.$1.name;
+          _linkedItemName = result.$2.name;
+          _visibility = result.$1.visibility;
+          if (result.$1.category != null) {
+            _selectedCategory = result.$1.category;
+          }
+          if (result.$1.workTag != null) {
+            _workTagController.text = result.$1.workTag!;
+          }
+          if (result.$3 != null) {
+            _artistTagController.text = result.$3!;
+          }
+        });
+      }
+    } catch (_) {
+      // silently fail - info is cosmetic
+    }
+  }
+
+  Future<void> _pickCatalogItem() async {
+    final result = await showCatalogItemPicker(context);
+    if (result != null && mounted) {
+      setState(() {
+        _linkedCatalogItemId = result.itemId;
+        _linkedCatalogId = result.catalogId;
+        _linkedItemName = result.itemName;
+        _linkedCatalogName = result.catalogName;
+        // 도감 공개범위 동기화
+        _visibility = result.visibility;
+        // 카테고리 동기화
+        if (result.category != null) {
+          _selectedCategory = result.category;
+        }
+        // 작품/콘텐츠 동기화
+        if (result.workTag != null) {
+          _workTagController.text = result.workTag!;
+        }
+        // 캐릭터명 동기화
+        if (result.characterName != null) {
+          _artistTagController.text = result.characterName!;
+        }
+      });
+    }
+  }
+
+  void _clearCatalogLink() {
+    setState(() {
+      _linkedCatalogItemId = null;
+      _linkedCatalogId = null;
+      _linkedItemName = null;
+      _linkedCatalogName = null;
+      // 잠금 해제 → 유저가 다시 자유롭게 설정 가능
+      _selectedCategory = null;
+      _workTagController.clear();
+      _artistTagController.clear();
+    });
   }
 
   Future<void> _pickImage() async {
@@ -145,6 +222,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               ? null
               : _memoController.text.trim(),
           'visibility': _visibility,
+          'catalog_item_id': _linkedCatalogItemId,
         });
       } else {
         await service.createGoods(
@@ -163,7 +241,28 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               ? null
               : _memoController.text.trim(),
           visibility: _visibility,
+          catalogItemId: _linkedCatalogItemId,
         );
+      }
+
+      // Auto-collect linked catalog item
+      if (_linkedCatalogItemId != null && _linkedCatalogId != null) {
+        try {
+          final catalogService = ref.read(catalogServiceProvider);
+          debugPrint('[GOODS] collectItem: catalogId=$_linkedCatalogId, itemId=$_linkedCatalogItemId');
+          await catalogService.collectItem(
+              _linkedCatalogId!, _linkedCatalogItemId!);
+          debugPrint('[GOODS] collectItem success');
+          // Sync photo if goods has photos
+          if (allPhotoUrls.isNotEmpty) {
+            await catalogService.updateItemPhotoIfEmpty(
+                _linkedCatalogItemId!, allPhotoUrls.first);
+          }
+          // Invalidate catalog providers so progress updates
+          ref.invalidate(myCatalogsProvider);
+        } catch (e) {
+          debugPrint('[GOODS] collectItem FAILED: $e');
+        }
       }
 
       if (mounted) {
@@ -223,6 +322,10 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Catalog link
+            _buildCatalogLinkSection(),
+            const SizedBox(height: 16),
+
             // Category
             _buildCategorySelector(),
             const SizedBox(height: 16),
@@ -232,6 +335,16 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               label: '작품/콘텐츠',
               hint: '예: 귀멸의 칼날, 블루 아카이브',
               controller: _workTagController,
+              readOnly: _linkedCatalogItemId != null && _workTagController.text.isNotEmpty,
+              suffix: _linkedCatalogItemId != null && _workTagController.text.isNotEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Tooltip(
+                        message: '도감에서 수정해주세요',
+                        child: Icon(PhosphorIconsBold.lock, size: 16, color: DuckColors.textLight),
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -240,6 +353,16 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               label: '아티스트/캐릭터',
               hint: '예: 탄지로, 아리스',
               controller: _artistTagController,
+              readOnly: _linkedCatalogItemId != null && _artistTagController.text.isNotEmpty,
+              suffix: _linkedCatalogItemId != null && _artistTagController.text.isNotEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.only(right: 12),
+                      child: Tooltip(
+                        message: '도감에서 수정해주세요',
+                        child: Icon(PhosphorIconsBold.lock, size: 16, color: DuckColors.textLight),
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -439,23 +562,41 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
   }
 
   Widget _buildCategorySelector() {
+    final locked = _linkedCatalogItemId != null && _selectedCategory != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('카테고리', style: Theme.of(context).textTheme.titleSmall),
+        Row(
+          children: [
+            Text('카테고리', style: Theme.of(context).textTheme.titleSmall),
+            if (locked) ...[
+              const SizedBox(width: 8),
+              const Text(
+                '(도감 설정에 따라 자동 적용)',
+                style: TextStyle(fontSize: 11, color: DuckColors.textLight),
+              ),
+            ],
+          ],
+        ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: Goods.categories.map((cat) {
-            return DuckChip(
-              label: Goods.categoryLabel(cat),
-              selected: _selectedCategory == cat,
-              onTap: () => setState(() {
-                _selectedCategory = _selectedCategory == cat ? null : cat;
-              }),
-            );
-          }).toList(),
+        IgnorePointer(
+          ignoring: locked,
+          child: Opacity(
+            opacity: locked ? 0.5 : 1.0,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: Goods.categories.map((cat) {
+                return DuckChip(
+                  label: Goods.categoryLabel(cat),
+                  selected: _selectedCategory == cat,
+                  onTap: () => setState(() {
+                    _selectedCategory = _selectedCategory == cat ? null : cat;
+                  }),
+                );
+              }).toList(),
+            ),
+          ),
         ),
       ],
     );
@@ -500,20 +641,107 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
     );
   }
 
-  Widget _buildVisibilitySelector() {
+  Widget _buildCatalogLinkSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('공개 범위', style: Theme.of(context).textTheme.titleSmall),
+        Text('도감 연결', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
+        if (_linkedCatalogItemId != null &&
+            _linkedCatalogName != null &&
+            _linkedItemName != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: DuckColors.primaryLight,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: DuckColors.primary, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                const Icon(PhosphorIconsBold.books,
+                    size: 16, color: DuckColors.primaryDark),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '$_linkedCatalogName > $_linkedItemName',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _clearCatalogLink,
+                  child: const Icon(PhosphorIconsBold.x,
+                      size: 16, color: DuckColors.textSub),
+                ),
+              ],
+            ),
+          )
+        else
+          GestureDetector(
+            onTap: _pickCatalogItem,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: DuckColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: DuckColors.surface, width: 2),
+              ),
+              child: const Row(
+                children: [
+                  Icon(PhosphorIconsBold.link,
+                      size: 18, color: DuckColors.textSub),
+                  SizedBox(width: 12),
+                  Text(
+                    '도감 아이템 연결',
+                    style: TextStyle(
+                      color: DuckColors.textLight,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildVisibilitySelector() {
+    final locked = _linkedCatalogItemId != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
           children: [
-            _visibilityChip('public', '전체 공개', PhosphorIconsBold.globe),
-            const SizedBox(width: 8),
-            _visibilityChip('friends', '친구 공개', PhosphorIconsBold.users),
-            const SizedBox(width: 8),
-            _visibilityChip('private', '비공개', PhosphorIconsBold.lock),
+            Text('공개 범위', style: Theme.of(context).textTheme.titleSmall),
+            if (locked) ...[
+              const SizedBox(width: 8),
+              const Text(
+                '(도감 설정에 따라 자동 적용)',
+                style: TextStyle(fontSize: 11, color: DuckColors.textLight),
+              ),
+            ],
           ],
+        ),
+        const SizedBox(height: 8),
+        IgnorePointer(
+          ignoring: locked,
+          child: Opacity(
+            opacity: locked ? 0.5 : 1.0,
+            child: Row(
+              children: [
+                _visibilityChip('public', '전체 공개', PhosphorIconsBold.globe),
+                const SizedBox(width: 8),
+                _visibilityChip('friends', '친구 공개', PhosphorIconsBold.users),
+                const SizedBox(width: 8),
+                _visibilityChip('private', '비공개', PhosphorIconsBold.lock),
+              ],
+            ),
+          ),
         ),
       ],
     );

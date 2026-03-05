@@ -139,6 +139,36 @@ static const String anonKey = 'YOUR_ANON_KEY';                  // ← anon key 
 
 ---
 
+## 4단계: IGDB (게임 검색) 설정 (5분, 선택)
+
+> 게임 검색/출시일 기능을 사용하려면 Twitch Developer 앱이 필요합니다.
+> 설정하지 않아도 애니메이션 기능은 정상 동작합니다.
+
+### 4-1. Twitch 앱 등록
+1. https://dev.twitch.tv/console/apps 접속 (Twitch 계정 + **2FA 필수**)
+2. **응용 프로그램** → 앱 등록
+3. 설정:
+   - 이름: `DuckLog`
+   - OAuth 리디렉션 URL: `https://localhost` (개발용)
+   - 카테고리: `Application Integration`
+4. **만들기** 클릭
+
+> **출시 전 TODO**: 리디렉션 URL을 `https://localhost`에서 실제 프로덕션 URL로 변경할 것 (Twitch Developer Console → 앱 관리에서 수정)
+
+### 4-2. 클라이언트 키 복사
+1. 생성된 앱 클릭 → **관리**
+2. **Client ID** 복사
+3. **새 비밀** 클릭 → **Client Secret** 복사
+
+### 4-3. 앱에 키 입력
+`lib/config/igdb_config.dart` 파일을 열어서:
+```dart
+static const String clientId = 'YOUR_TWITCH_CLIENT_ID';      // ← Client ID 붙여넣기
+static const String clientSecret = 'YOUR_TWITCH_CLIENT_SECRET'; // ← Client Secret 붙여넣기
+```
+
+---
+
 ## 완료 확인
 
 모든 설정이 끝나면:
@@ -153,6 +183,7 @@ flutter run
 - [ ] Google OAuth Client ID/Secret이 Supabase에 설정됨
 - [ ] Kakao REST API 키가 Supabase에 설정됨
 - [ ] AndroidManifest.xml의 Kakao scheme이 실제 키로 변경됨
+- [ ] (선택) Twitch Client ID/Secret이 `igdb_config.dart`에 입력됨
 
 ---
 
@@ -211,63 +242,59 @@ start ms-settings:developers
    - 캘린더 날짜 셀: 이벤트 있는 날에 색상 dot (민트=애니, 핑크=게임)
    - 날짜 선택 시: 해당 날짜의 CalendarEvent 카드 리스트 (타입 색상 바, displayTitle, 아이콘)
 
-### 다음에 할 작업: AniList API 연동 🔜
+#### AniList API 연동 ✅
+구현된 파일:
+1. **`lib/features/calendar/services/anilist_service.dart`** (신규)
+   - `AnilistService`: searchAnime, getTrending, getCurrentlyAiring, getAiringSchedule
+   - `AnilistMedia` 모델: id, titleRomaji, titleNative, titleEnglish, titleKorean(synonyms에서 추출), coverImageUrl, status, nextAiringEpisode
+   - `displayTitle` 우선순위: 한국어 > 영어 > 원어 > romaji, `subtitle` 보조 제목
+   - `AnilistAiringSchedule` 모델: airingAt (Unix timestamp), episode
+   - GraphQL endpoint: `https://graphql.anilist.co` (인증 불필요)
+   - Providers: `anilistServiceProvider`, `trendingAnimeProvider`, `airingAnimeProvider`, `workAiringScheduleProvider(family:externalId)`
 
-**목표**: 작품 검색 시 AniList에서 실제 애니를 검색하고, 팔로우 시 방영 스케줄을 자동으로 가져오기
+2. **`lib/features/calendar/screens/work_search_screen.dart`** (수정)
+   - 타입 선택 칩 (애니/게임) + 타입별 탭 전환
+   - 애니: 인기(트렌딩) / 방영 중 / 검색 / 내 작품 탭
+   - 게임: 인기 / 출시 예정 / 검색 / 내 작품 탭
+   - AniList 실시간 검색 (500ms 디바운스), 커버 이미지 + 한글 우선 제목 + 방영 상태 배지
+   - IGDB 미설정 시 안내 메시지 표시
 
-#### 구현해야 할 것:
-1. **AniList GraphQL 클라이언트** (`lib/features/calendar/services/anilist_service.dart`)
-   - 작품 검색: title로 검색 → id, title(romaji/native), coverImage, status 반환
-   - 방영 스케줄 조회: media id → airingSchedule (airingAt, episode) 가져오기
-   - 인증 불필요, rate limit: 90 req/min
-   - GraphQL endpoint: `https://graphql.anilist.co`
+3. **`lib/features/calendar/screens/work_detail_screen.dart`** (수정)
+   - 커버 이미지 (CachedNetworkImage, full width, 220px)
+   - 애니: AniList 방영 스케줄 표시 (에피소드별 날짜 + D-day 라벨)
+   - 게임: Supabase calendar_events에서 출시 일정 표시 (출시일 + D-day 라벨)
+   - 팔로우 해제 (AppBar 버튼)
 
-2. **work_search_screen.dart 수정**
-   - 애니 타입 선택 시: 제목 입력 → AniList API 검색 → 결과 리스트 표시
-   - 검색 결과에서 선택 → followWork (externalId = AniList media ID)
-   - 게임 타입은 당분간 수동 입력 유지 (IGDB는 Twitch 인증 필요)
+4. **`lib/features/calendar/screens/calendar_screen.dart`** (수정)
+   - `monthAiringScheduleProvider` 사용 (AniList + Supabase 통합)
+   - 날짜별 색상 dot: 민트(애니 방영) + 핑크(게임 출시)
+   - 날짜 선택 시 해당 일정 카드 리스트
 
-3. **calendar_service.dart 수정**
-   - followWork 시 AniList에서 방영 스케줄 가져와서 calendar_events에 자동 저장
-   - external_id를 AniList media ID로 사용
+5. **`lib/features/calendar/services/calendar_service.dart`** (수정)
+   - `followWork()`에 `externalId` 선택 파라미터 추가
+   - `AiringEntry` 클래스: 애니 방영 + 게임 출시 통합 일정 모델
+   - `monthAiringScheduleProvider`: 애니는 AniList API, 게임은 Supabase calendar_events에서 조회
 
-4. **(선택) Supabase Edge Function: 자동 동기화**
-   - 매일 cron으로 followed_works 순회 → AniList에서 최신 스케줄 가져와 calendar_events upsert
+6. **`pubspec.yaml`**: `http: ^1.2.2` 패키지 추가
 
-#### AniList GraphQL 쿼리 참고:
-```graphql
-# 작품 검색
-query ($search: String) {
-  Page(perPage: 10) {
-    media(search: $search, type: ANIME) {
-      id
-      title { romaji native }
-      coverImage { large }
-      status
-      nextAiringEpisode { airingAt episode }
-    }
-  }
-}
+#### IGDB API 연동 ✅
+구현된 파일:
+1. **`lib/config/igdb_config.dart`** (신규)
+   - Twitch Client ID/Secret 설정 (Developer Console에서 발급)
+   - `isConfigured` getter: 실제 키가 입력되었는지 확인
 
-# 방영 스케줄
-query ($mediaId: Int) {
-  Media(id: $mediaId) {
-    airingSchedule(notYetAired: true, perPage: 25) {
-      nodes { airingAt episode }
-    }
-  }
-}
-```
+2. **`lib/features/calendar/services/igdb_service.dart`** (신규)
+   - `IgdbService`: searchGames, getPopularGames, getUpcomingGames
+   - `IgdbGame` 모델: id, name, coverUrl, releaseDate, releaseDateHuman, rating
+   - Twitch OAuth2 client_credentials 토큰 자동 발급 + 캐싱
+   - IGDB API v4 (Apicalypse 쿼리 문법)
+   - Providers: `igdbServiceProvider`, `popularGamesProvider`, `upcomingGamesProvider`
 
-#### 참고 사항:
-- AniList `airingAt`은 Unix timestamp (초 단위) → `DateTime.fromMillisecondsSinceEpoch(airingAt * 1000)`
-- coverImage URL은 그대로 cover_url로 저장 (자체 서버 복제 X, API ToS 준수)
-- `http` 패키지 또는 `dio`로 POST 요청 (GraphQL은 POST + JSON body)
-- 현재 프로젝트 `pubspec.yaml`에 http 패키지 확인 필요
+### 다음에 할 작업 🔜
 
 ### 남은 전체 로드맵
-- [ ] **AniList API 연동** ← 다음 작업
-- [ ] IGDB API 연동 (게임 출시일, Twitch 인증 필요)
+- [x] **AniList API 연동** ✅
+- [x] **IGDB API 연동** ✅
 - [ ] Phase 3: 영수증 OCR (Gemini Vision Edge Function)
 - [ ] Phase 4: 통계 & 리포트 (fl_chart)
 - [ ] Phase 5 나머지: 캘린더 자동 동기화 cron + 푸시 알림

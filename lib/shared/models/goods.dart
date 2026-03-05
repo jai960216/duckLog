@@ -10,6 +10,7 @@ class Goods {
   final DateTime? purchasedAt;
   final String? memo;
   final String visibility;
+  final String? catalogItemId;
   final DateTime createdAt;
 
   // Transient: like count from joins
@@ -28,6 +29,7 @@ class Goods {
     this.purchasedAt,
     this.memo,
     this.visibility = 'public',
+    this.catalogItemId,
     required this.createdAt,
     this.likeCount = 0,
     this.isLikedByMe = false,
@@ -50,6 +52,7 @@ class Goods {
           : null,
       memo: json['memo'] as String?,
       visibility: json['visibility'] as String? ?? 'public',
+      catalogItemId: json['catalog_item_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       likeCount: json['like_count'] as int? ?? 0,
       isLikedByMe: json['is_liked_by_me'] as bool? ?? false,
@@ -68,6 +71,7 @@ class Goods {
       'purchased_at': purchasedAt?.toIso8601String().split('T').first,
       'memo': memo,
       'visibility': visibility,
+      'catalog_item_id': catalogItemId,
     };
   }
 
@@ -81,6 +85,8 @@ class Goods {
     DateTime? purchasedAt,
     String? memo,
     String? visibility,
+    String? catalogItemId,
+    bool clearCatalogItemId = false,
   }) {
     return Goods(
       id: id,
@@ -94,6 +100,7 @@ class Goods {
       purchasedAt: purchasedAt ?? this.purchasedAt,
       memo: memo ?? this.memo,
       visibility: visibility ?? this.visibility,
+      catalogItemId: clearCatalogItemId ? null : (catalogItemId ?? this.catalogItemId),
       createdAt: createdAt,
       likeCount: likeCount,
       isLikedByMe: isLikedByMe,
