@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
@@ -11,9 +14,13 @@ import '../../goods/services/goods_service.dart';
 final categorySpendingProvider =
     FutureProvider.autoDispose.family<Map<String, int>, String>(
   (ref, monthKey) async {
-    final parts = monthKey.split('-');
-    final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-    return ref.read(goodsServiceProvider).getCategorySpending(month);
+    try {
+      final parts = monthKey.split('-');
+      final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+      return ref.read(goodsServiceProvider).getCategorySpending(month);
+    } catch (e) {
+      return {};
+    }
   },
 );
 
@@ -34,6 +41,8 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   Widget build(BuildContext context) {
     final categoryAsync = ref.watch(categorySpendingProvider(_monthKey));
     final monthlyAsync = ref.watch(monthlySpendingProvider(_monthKey));
+    final historyAsync = ref.watch(spendingHistoryProvider(6));
+    final workTagAsync = ref.watch(workTagSpendingProvider(_monthKey));
 
     return Scaffold(
       appBar: AppBar(
@@ -216,6 +225,222 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               icon: PhosphorIconsBold.warning,
             ),
           ),
+
+          const SizedBox(height: 32),
+
+          // Section 2: Monthly spending trend BarChart
+          Text('월별 지출 추이',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+
+          historyAsync.when(
+            data: (entries) {
+              if (entries.isEmpty || entries.every((e) => e.amount == 0)) {
+                return const DuckEmptyState(
+                  message: '지출 기록이 없어요.',
+                  icon: PhosphorIconsBold.chartBar,
+                );
+              }
+
+              final maxAmount = entries
+                  .map((e) => e.amount)
+                  .reduce((a, b) => math.max(a, b));
+              final maxY = maxAmount == 0 ? 10000.0 : maxAmount * 1.3;
+
+              return SizedBox(
+                height: 220,
+                child: BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: maxY,
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      leftTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final idx = value.toInt();
+                            if (idx < 0 || idx >= entries.length) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                DateFormat('M월').format(entries[idx].month),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(fontSize: 11),
+                              ),
+                            );
+                          },
+                          reservedSize: 28,
+                        ),
+                      ),
+                    ),
+                    gridData: const FlGridData(show: false),
+                    borderData: FlBorderData(show: false),
+                    barGroups: entries.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final item = entry.value;
+                      final isCurrentMonth =
+                          item.month.year == _selectedMonth.year &&
+                              item.month.month == _selectedMonth.month;
+                      return BarChartGroupData(
+                        x: idx,
+                        barRods: [
+                          BarChartRodData(
+                            toY: item.amount.toDouble(),
+                            color: isCurrentMonth
+                                ? DuckColors.primary
+                                : DuckColors.surface,
+                            width: 28,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(6),
+                            ),
+                          ),
+                        ],
+                        showingTooltipIndicators:
+                            item.amount > 0 ? [0] : [],
+                      );
+                    }).toList(),
+                    barTouchData: BarTouchData(
+                      enabled: false,
+                      touchTooltipData: BarTouchTooltipData(
+                        tooltipPadding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        tooltipMargin: 4,
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final amount = rod.toY.round();
+                          if (amount == 0) return null;
+                          return BarTooltipItem(
+                            Formatters.priceShort(amount),
+                            TextStyle(
+                              color: DuckColors.text,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+            loading: () => const SizedBox(
+              height: 220,
+              child: Center(
+                child: CircularProgressIndicator(color: DuckColors.primary),
+              ),
+            ),
+            error: (_, __) => const DuckEmptyState(
+              message: '데이터를 불러올 수 없어요.',
+              icon: PhosphorIconsBold.warning,
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
+          // Section 3: Work tag Top 5
+          Text('작품별 지출 TOP 5',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+
+          workTagAsync.when(
+            data: (data) {
+              if (data.isEmpty) {
+                return const DuckEmptyState(
+                  message: '작품 태그를 등록하면 통계를 볼 수 있어요.',
+                  icon: PhosphorIconsBold.tag,
+                );
+              }
+
+              final sortedEntries = data.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value));
+              final top5 = sortedEntries.take(5).toList();
+              final maxValue = top5.first.value;
+
+              return Column(
+                children: top5.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final item = entry.value;
+                  final ratio = maxValue > 0 ? item.value / maxValue : 0.0;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${idx + 1}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: DuckColors.primary,
+                                  ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                item.key,
+                                style:
+                                    Theme.of(context).textTheme.bodyMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              Formatters.price(item.value),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: ratio,
+                            minHeight: 8,
+                            backgroundColor: DuckColors.surface,
+                            color: DuckColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+            loading: () => const SizedBox(
+              height: 100,
+              child: Center(
+                child: CircularProgressIndicator(color: DuckColors.primary),
+              ),
+            ),
+            error: (_, __) => const DuckEmptyState(
+              message: '데이터를 불러올 수 없어요.',
+              icon: PhosphorIconsBold.warning,
+            ),
+          ),
+
+          const SizedBox(height: 20),
         ],
       ),
     );

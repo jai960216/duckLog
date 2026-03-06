@@ -78,7 +78,7 @@ class GoodsDetailScreen extends ConsumerWidget {
         ],
       ),
       body: goodsAsync.when(
-        data: (goods) => _buildDetail(context, goods),
+        data: (goods) => _buildDetail(context, ref, goods),
         loading: () => const Center(
           child: CircularProgressIndicator(color: DuckColors.primary),
         ),
@@ -90,7 +90,7 @@ class GoodsDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetail(BuildContext context, Goods goods) {
+  Widget _buildDetail(BuildContext context, WidgetRef ref, Goods goods) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -165,6 +165,24 @@ class GoodsDetailScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
 
+        // Like count
+        if (goods.likeCount > 0) ...[
+          Row(
+            children: [
+              const Icon(PhosphorIconsBold.heart,
+                  size: 18, color: DuckColors.error),
+              const SizedBox(width: 8),
+              Text(
+                '좋아요 ${goods.likeCount}개',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+
         // Info rows
         _infoRow(context, PhosphorIconsBold.calendar, '구매일',
             goods.purchasedAt != null ? Formatters.date(goods.purchasedAt) : '-'),
@@ -172,7 +190,7 @@ class GoodsDetailScreen extends ConsumerWidget {
             _visibilityLabel(goods.visibility)),
 
         // Catalog link
-        if (goods.catalogItemId != null) _buildCatalogLink(context, goods),
+        if (goods.catalogItemId != null) _buildCatalogLink(context, ref, goods),
 
         // Memo
         if (goods.memo != null && goods.memo!.isNotEmpty) ...[
@@ -205,15 +223,18 @@ class GoodsDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCatalogLink(BuildContext context, Goods goods) {
-    return FutureBuilder(
-      future: CatalogService(Supabase.instance.client)
-          .getCatalogForItem(goods.catalogItemId!),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data == null) {
-          return const SizedBox.shrink();
-        }
-        final (catalog, item, _) = snapshot.data!;
+  Widget _buildCatalogLink(BuildContext context, WidgetRef ref, Goods goods) {
+    // Provider 기반 조회로 FutureBuilder 재생성 방지
+    final catalogFuture = ref.watch(
+      catalogForItemProvider(goods.catalogItemId!),
+    );
+
+    return catalogFuture.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (data) {
+        if (data == null) return const SizedBox.shrink();
+        final (catalog, item, _) = data;
         return GestureDetector(
           onTap: () {
             Navigator.of(context).push(
@@ -282,34 +303,33 @@ class GoodsDetailScreen extends ConsumerWidget {
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref, Goods goods) {
+    // 다이얼로그 context가 외부 context를 shadow하므로 미리 캡처
+    final outerNavigator = Navigator.of(context);
+    final outerMessenger = ScaffoldMessenger.of(context);
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('삭제하시겠어요?'),
         content: Text('\'${goods.name}\'을(를) 삭제하면 되돌릴 수 없어요.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
             child: const Text('취소'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop(); // close dialog
+              Navigator.of(dialogCtx).pop(); // close dialog
               try {
                 await ref.read(goodsServiceProvider).deleteGoods(goods.id);
-                // Invalidate all goods-related providers
                 ref.invalidate(goodsListProvider);
                 ref.invalidate(monthlySpendingProvider);
                 ref.invalidate(goodsDetailProvider(goodsId));
-                if (context.mounted) {
-                  Navigator.of(context).pop(true);
-                }
+                outerNavigator.pop(true);
               } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('삭제에 실패했어요: $e')),
-                  );
-                }
+                outerMessenger.showSnackBar(
+                  SnackBar(content: Text('삭제에 실패했어요: $e')),
+                );
               }
             },
             child: const Text('삭제',

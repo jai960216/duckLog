@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../shared/models/goods.dart';
+import '../../../shared/models/receipt.dart';
 import '../../../shared/widgets/widgets.dart';
-import '../services/goods_service.dart';
+import '../services/receipt_service.dart';
 
 enum _ScanState { idle, scanning, result }
 
@@ -25,13 +27,20 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   // Extracted data fields
   final _storeNameController = TextEditingController();
   final _totalAmountController = TextEditingController();
+  final _memoController = TextEditingController();
   DateTime? _purchasedAt;
   final List<_ExtractedItem> _items = [];
+
+  // New metadata fields
+  String? _purchaseChannel;
+  String? _expenseType;
+  String? _category;
 
   @override
   void dispose() {
     _storeNameController.dispose();
     _totalAmountController.dispose();
+    _memoController.dispose();
     super.dispose();
   }
 
@@ -88,54 +97,62 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
   }
 
-  Future<void> _saveAsGoods() async {
-    final service = ref.read(goodsServiceProvider);
+  Future<void> _saveAsReceipt() async {
+    final service = ref.read(receiptServiceProvider);
 
     try {
-      // Upload receipt photo
+      // Upload receipt photo to private bucket with signed URL
       String? photoUrl;
-      if (_photo != null) {
-        photoUrl =
-            await service.uploadPhoto(
-                _photoBytes!, _photo!.name, bucket: 'receipt-photos');
+      if (_photoBytes != null && _photo != null) {
+        photoUrl = await service.uploadReceiptPhoto(_photoBytes!, _photo!.name);
       }
 
-      // Save each item as goods
-      for (final item in _items) {
-        if (item.name.isNotEmpty) {
-          await service.createGoods(
-            name: item.name,
-            price: item.price,
-            purchasedAt: _purchasedAt,
-          );
+      if (photoUrl == null) {
+        if (mounted) {
+          DuckSnackBar.info(context, '영수증 사진이 필요해요.');
         }
+        return;
       }
 
-      // If no items, save as single entry
-      if (_items.isEmpty) {
-        final amount =
-            int.tryParse(_totalAmountController.text.replaceAll(',', ''));
-        await service.createGoods(
-          name: _storeNameController.text.isNotEmpty
-              ? '${_storeNameController.text} 구매'
-              : '영수증 구매',
-          price: amount,
-          purchasedAt: _purchasedAt,
-          photoUrls: photoUrl != null ? [photoUrl] : [],
-        );
+      // Build extracted data from items
+      Map<String, dynamic>? extractedData;
+      if (_items.isNotEmpty) {
+        extractedData = {
+          'items': _items
+              .map((item) => {
+                    'name': item.name,
+                    'price': item.price,
+                    'quantity': item.quantity,
+                  })
+              .toList(),
+        };
       }
+
+      final amount =
+          int.tryParse(_totalAmountController.text.replaceAll(',', ''));
+
+      // Save as receipt (NOT goods)
+      await service.createReceipt(
+        photoUrl: photoUrl,
+        extractedData: extractedData,
+        totalAmount: amount,
+        storeName: _storeNameController.text.isNotEmpty
+            ? _storeNameController.text
+            : null,
+        purchasedAt: _purchasedAt,
+        category: _category,
+        purchaseChannel: _purchaseChannel,
+        expenseType: _expenseType,
+        memo: _memoController.text.isNotEmpty ? _memoController.text : null,
+      );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('저장되었어요!')),
-        );
+        DuckSnackBar.success(context, '영수증이 저장되었어요!');
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '저장에 실패했어요: $e');
       }
     }
   }
@@ -144,7 +161,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('영수증 촬영'),
+        title: const Text('영수증 보관'),
         leading: IconButton(
           icon: const Icon(PhosphorIconsBold.x),
           onPressed: () => Navigator.of(context).pop(),
@@ -243,6 +260,38 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     );
   }
 
+  Widget _buildChipRow({
+    required String label,
+    required List<String> values,
+    required String? selected,
+    required String Function(String) labelBuilder,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: values
+                .map((v) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: DuckChip(
+                        label: labelBuilder(v),
+                        selected: selected == v,
+                        onTap: () => onChanged(selected == v ? null : v),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildResultState() {
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -271,6 +320,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         ),
         const SizedBox(height: 20),
 
+        // 매장명
         DuckTextField(
           label: '매장명',
           hint: '매장 이름',
@@ -278,6 +328,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         ),
         const SizedBox(height: 16),
 
+        // 총 금액
         DuckTextField(
           label: '총 금액',
           hint: '0',
@@ -288,6 +339,47 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
             padding: EdgeInsets.only(left: 16),
             child: Icon(PhosphorIconsBold.currencyKrw, size: 18),
           ),
+        ),
+        const SizedBox(height: 20),
+
+        // 구매 채널
+        _buildChipRow(
+          label: '구매 채널',
+          values: Receipt.purchaseChannels,
+          selected: _purchaseChannel,
+          labelBuilder: Receipt.purchaseChannelLabel,
+          onChanged: (v) => setState(() => _purchaseChannel = v),
+        ),
+        const SizedBox(height: 16),
+
+        // 지출 유형
+        _buildChipRow(
+          label: '지출 유형',
+          values: Receipt.expenseTypes,
+          selected: _expenseType,
+          labelBuilder: Receipt.expenseTypeLabel,
+          onChanged: (v) => setState(() => _expenseType = v),
+        ),
+        const SizedBox(height: 16),
+
+        // 굿즈 카테고리 (지출 유형이 'goods'일 때만)
+        if (_expenseType == 'goods') ...[
+          _buildChipRow(
+            label: '굿즈 카테고리',
+            values: Goods.categories,
+            selected: _category,
+            labelBuilder: Goods.categoryLabel,
+            onChanged: (v) => setState(() => _category = v),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // 메모
+        DuckTextField(
+          label: '메모',
+          hint: '자유롭게 메모를 남겨보세요',
+          controller: _memoController,
+          maxLines: 3,
         ),
         const SizedBox(height: 16),
 
@@ -319,8 +411,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         SizedBox(
           width: double.infinity,
           child: DuckButton(
-            text: '저장하기',
-            onPressed: _saveAsGoods,
+            text: '영수증 저장',
+            onPressed: _saveAsReceipt,
           ),
         ),
         const SizedBox(height: 12),
@@ -335,6 +427,10 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                 _photoBytes = null;
                 _state = _ScanState.idle;
                 _items.clear();
+                _purchaseChannel = null;
+                _expenseType = null;
+                _category = null;
+                _memoController.clear();
               });
             },
           ),

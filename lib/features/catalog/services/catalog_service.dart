@@ -47,6 +47,15 @@ final catalogGroupedItemsProvider = FutureProvider.autoDispose
   },
 );
 
+/// 아이템 ID → (Catalog, CatalogItem, characterName?) 조회 (굿즈 상세에서 도감 링크 표시용)
+final catalogForItemProvider = FutureProvider.autoDispose
+    .family<(Catalog, CatalogItem, String?)?, String>(
+  (ref, itemId) async {
+    final service = ref.read(catalogServiceProvider);
+    return await service.getCatalogForItem(itemId);
+  },
+);
+
 class CatalogService {
   final SupabaseClient _client;
 

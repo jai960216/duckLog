@@ -6,7 +6,7 @@ import '../../../config/colors.dart';
 import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../../shared/models/goods.dart';
-import '../../../shared/widgets/duck_chip.dart';
+import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_item_tile.dart';
@@ -52,7 +52,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
   void _showUncollectedWithPhotoOptions(CatalogItem item) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetCtx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -71,17 +71,12 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
               title: const Text('수집 확정'),
               subtitle: const Text('현재 사진으로 수집 완료 처리해요'),
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(sheetCtx);
                 final service = ref.read(catalogServiceProvider);
                 await service.toggleCollection(widget.catalogId, item.id);
                 _invalidateAll();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('수집 완료!'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
+                  DuckSnackBar.success(context, '수집 완료!');
                 }
               },
             ),
@@ -89,7 +84,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
               leading: const Icon(PhosphorIconsBold.camera),
               title: const Text('사진 변경 후 수집'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetCtx);
                 _pickPhotoAndCollect(item);
               },
             ),
@@ -114,12 +109,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       if (picked == null) return; // 취소 시 아무 것도 안 함
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('사진 업로드 중...'),
-            duration: Duration(seconds: 10),
-          ),
-        );
+        DuckSnackBar.info(context, '사진 업로드 중...');
       }
 
       final service = ref.read(catalogServiceProvider);
@@ -133,21 +123,12 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('수집 완료!'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        DuckSnackBar.success(context, '수집 완료!');
       }
       _invalidateAll();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('업로드에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '업로드에 실패했어요: $e');
       }
     } finally {
       _isPicking = false;
@@ -1073,9 +1054,7 @@ class _CharacterCatalogEditScreenState
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('수정에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '수정에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

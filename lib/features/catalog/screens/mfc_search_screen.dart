@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
+import '../../../shared/widgets/widgets.dart';
 import '../services/mfc_service.dart';
 import '../services/catalog_service.dart';
 import 'catalog_detail_screen.dart';
@@ -36,12 +37,12 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
     }
   }
 
-  void _toggleSelection(int id) {
+  void _toggleSelection(int key) {
     setState(() {
-      if (_selectedIds.contains(id)) {
-        _selectedIds.remove(id);
+      if (_selectedIds.contains(key)) {
+        _selectedIds.remove(key);
       } else {
-        _selectedIds.add(id);
+        _selectedIds.add(key);
       }
     });
   }
@@ -51,14 +52,14 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
       if (_selectedIds.length == figures.length) {
         _selectedIds.clear();
       } else {
-        _selectedIds.addAll(figures.map((f) => f.id));
+        _selectedIds.addAll(figures.map((f) => f.uniqueKey));
       }
     });
   }
 
   Future<void> _createCatalog(List<MfcFigure> allFigures) async {
     final selected =
-        allFigures.where((f) => _selectedIds.contains(f.id)).toList();
+        allFigures.where((f) => _selectedIds.contains(f.uniqueKey)).toList();
     if (selected.isEmpty) return;
 
     setState(() => _isCreating = true);
@@ -89,9 +90,7 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('도감 생성에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '도감 생성에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isCreating = false);
@@ -273,7 +272,7 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
                       itemCount: figures.length,
                       itemBuilder: (context, index) {
                         final figure = figures[index];
-                        final isSelected = _selectedIds.contains(figure.id);
+                        final isSelected = _selectedIds.contains(figure.uniqueKey);
                         return _buildFigureTile(figure, isSelected);
                       },
                     ),
@@ -316,7 +315,7 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
 
   Widget _buildFigureTile(MfcFigure figure, bool isSelected) {
     return GestureDetector(
-      onTap: () => _toggleSelection(figure.id),
+      onTap: () => _toggleSelection(figure.uniqueKey),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(10),

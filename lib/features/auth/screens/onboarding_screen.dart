@@ -27,15 +27,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final nickname = _nicknameController.text.trim();
+
       await ref.read(authServiceProvider).upsertProfile(
-            nickname: _nicknameController.text.trim(),
+            nickname: nickname,
           );
-      // Navigation will be handled by auth state listener
+      // 프로필 생성 후 ProfileGate가 다시 체크하도록 갱신
+      ref.invalidate(currentProfileProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('프로필 생성에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '프로필 생성에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -45,6 +46,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          TextButton(
+            onPressed: () => ref.read(authServiceProvider).signOut(),
+            child: Text(
+              '로그아웃',
+              style: TextStyle(color: DuckColors.textSub),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -53,7 +67,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 20),
 
                 // Duck greeting
                 Center(

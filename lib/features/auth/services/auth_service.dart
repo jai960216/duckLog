@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../config/google_auth_config.dart';
 import '../../../shared/models/profile.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -11,6 +15,7 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
 });
 
 final currentUserProvider = Provider<User?>((ref) {
+  ref.watch(authStateProvider); // auth 상태 변경 시 rebuild
   return Supabase.instance.client.auth.currentUser;
 });
 
@@ -24,7 +29,16 @@ final currentProfileProvider =
       await client.from('profiles').select().eq('id', user.id).maybeSingle();
 
   if (response == null) return null;
-  return Profile.fromJson(response);
+  final profile = Profile.fromJson(response);
+
+  // 기존 유저: friend_code가 비어있으면 자동 생성
+  if (profile.friendCode.isEmpty) {
+    final authService = ref.read(authServiceProvider);
+    final updated = await authService.ensureFriendCode(user.id);
+    if (updated != null) return updated;
+  }
+
+  return profile;
 });
 
 class AuthService {
@@ -34,29 +48,29 @@ class AuthService {
 
   User? get currentUser => _client.auth.currentUser;
 
-  // Google Sign In
+  // Google Sign In — 네이티브 SDK (앱 내 계정 선택기)
   Future<AuthResponse> signInWithGoogle() async {
-    return await _client.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: 'com.ducklog.ducklog://login-callback',
-    ).then((_) => _client.auth.currentSession != null
-        ? AuthResponse(session: _client.auth.currentSession)
-        : AuthResponse(session: null));
-  }
-
-  // Email Sign Up (dev/testing)
-  Future<AuthResponse> signUpWithEmail(String email, String password) async {
-    return await _client.auth.signUp(
-      email: email,
-      password: password,
+    final googleSignIn = GoogleSignIn(
+      serverClientId: GoogleAuthConfig.webClientId,
     );
-  }
 
-  // Email Sign In (dev/testing)
-  Future<AuthResponse> signInWithEmail(String email, String password) async {
-    return await _client.auth.signInWithPassword(
-      email: email,
-      password: password,
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) {
+      throw Exception('Google 로그인이 취소되었습니다.');
+    }
+
+    final googleAuth = await googleUser.authentication;
+    final idToken = googleAuth.idToken;
+    final accessToken = googleAuth.accessToken;
+
+    if (idToken == null) {
+      throw Exception('Google ID 토큰을 가져올 수 없습니다.');
+    }
+
+    return await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: accessToken,
     );
   }
 
@@ -65,6 +79,7 @@ class AuthService {
     return await _client.auth.signInWithOAuth(
       OAuthProvider.kakao,
       redirectTo: 'com.ducklog.ducklog://login-callback',
+      scopes: 'account_email,profile_image,profile_nickname',
     );
   }
 
@@ -77,9 +92,20 @@ class AuthService {
     final user = currentUser;
     if (user == null) throw Exception('Not authenticated');
 
+    // 기존 프로필 확인 (friend_code 유지 목적)
+    final existing = await _client
+        .from('profiles')
+        .select('friend_code')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    final friendCode = existing?['friend_code'] as String? ??
+        await _generateFriendCode();
+
     final data = {
       'id': user.id,
       'nickname': nickname,
+      'friend_code': friendCode,
       'avatar_url': avatarUrl,
       'bio': bio,
     };
@@ -88,6 +114,34 @@ class AuthService {
     final response =
         await _client.from('profiles').select().eq('id', user.id).single();
     return Profile.fromJson(response);
+  }
+
+  /// 6자리 랜덤 영숫자 친구 코드 생성 (충돌 시 재시도)
+  Future<String> _generateFriendCode() async {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random();
+
+    for (var attempt = 0; attempt < 10; attempt++) {
+      final code = String.fromCharCodes(
+        Iterable.generate(
+          6,
+          (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+        ),
+      );
+
+      // 중복 확인
+      final existing = await _client
+          .from('profiles')
+          .select('id')
+          .eq('friend_code', code)
+          .maybeSingle();
+
+      if (existing == null) return code;
+    }
+
+    // 10회 시도 실패 시 타임스탬프 기반 fallback
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    return ts.toRadixString(36).substring(0, 6);
   }
 
   // Check if profile exists (for onboarding flow)
@@ -101,6 +155,39 @@ class AuthService {
         .eq('id', user.id)
         .maybeSingle();
     return response != null;
+  }
+
+  /// 기존 유저의 friend_code가 없으면 생성하여 저장
+  Future<Profile?> ensureFriendCode(String userId) async {
+    try {
+      final code = await _generateFriendCode();
+      await _client
+          .from('profiles')
+          .update({'friend_code': code})
+          .eq('id', userId);
+
+      final response = await _client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .single();
+      return Profile.fromJson(response);
+    } on PostgrestException {
+      // DB에 friend_code 컬럼이 없는 경우 — 무시
+      return null;
+    }
+  }
+
+  /// 친구 코드로 프로필 검색
+  Future<Profile?> searchByFriendCode(String code) async {
+    final response = await _client
+        .from('profiles')
+        .select()
+        .eq('friend_code', code.toLowerCase().trim())
+        .maybeSingle();
+
+    if (response == null) return null;
+    return Profile.fromJson(response);
   }
 
   // Sign out

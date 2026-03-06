@@ -103,7 +103,7 @@ class GoodsCard extends StatelessWidget {
             ),
           ),
 
-          // Date
+          // Date & Likes
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -113,6 +113,23 @@ class GoodsCard extends StatelessWidget {
                     : '',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (goods.likeCount > 0) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(PhosphorIconsBold.heart,
+                        size: 14, color: DuckColors.error),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${goods.likeCount}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: DuckColors.error,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],

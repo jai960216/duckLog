@@ -46,7 +46,10 @@ static const String anonKey = 'YOUR_ANON_KEY';                  // ← anon key 
 
 ---
 
-## 2단계: Google OAuth 설정 (10분)
+## 2단계: Google 로그인 설정 (10분) — 네이티브 SDK 방식
+
+> Google은 `google_sign_in` 패키지를 사용한 네이티브 SDK 방식입니다.
+> 앱 내에서 Google 계정 선택기가 표시되며, 브라우저 리다이렉트 없이 로그인됩니다.
 
 ### 2-1. Google Cloud 프로젝트
 1. https://console.cloud.google.com 접속
@@ -62,7 +65,9 @@ static const String anonKey = 'YOUR_ANON_KEY';                  // ← anon key 
    - 개발자 연락처 이메일: 본인 이메일
 4. **저장 후 계속** → 범위 설정은 기본값 → 저장 후 계속 → 완료
 
-### 2-3. OAuth 클라이언트 ID 생성
+### 2-3. OAuth 클라이언트 ID 생성 (2개 필요)
+
+#### A. 웹 애플리케이션 클라이언트 (Supabase 연동 + ID 토큰 발급용)
 1. **사용자 인증 정보** → **사용자 인증 정보 만들기** → **OAuth 클라이언트 ID**
 2. **웹 애플리케이션** 선택:
    - 이름: `DuckLog Web`
@@ -71,15 +76,11 @@ static const String anonKey = 'YOUR_ANON_KEY';                  // ← anon key 
      https://YOUR_SUPABASE_PROJECT.supabase.co/auth/v1/callback
      ```
      (YOUR_SUPABASE_PROJECT 부분을 실제 Supabase URL로 변경)
-3. **만들기** → Client ID와 Client Secret 복사
+3. **만들기** → **Client ID**와 **Client Secret** 복사
+   - Client ID 형식: `xxxxxxxxxxxx.apps.googleusercontent.com`
+   - 이 Client ID가 앱에서 `GOOGLE_WEB_CLIENT_ID`로 사용됩니다
 
-### 2-4. Supabase에 Google 연결
-1. Supabase Dashboard → **Authentication** → **Providers**
-2. **Google** 활성화
-3. Client ID, Client Secret 붙여넣기
-4. **Save**
-
-### 2-5. Android용 OAuth 클라이언트 (선택사항 - 네이티브 로그인 시)
+#### B. Android 클라이언트 (네이티브 계정 선택기용)
 1. **사용자 인증 정보 만들기** → **OAuth 클라이언트 ID** → **Android**
 2. 패키지 이름: `com.ducklog.ducklog`
 3. SHA-1 인증서 지문 얻기:
@@ -87,10 +88,28 @@ static const String anonKey = 'YOUR_ANON_KEY';                  // ← anon key 
    cd android && ./gradlew signingReport
    ```
    → `SHA1:` 값 복사해서 입력
+4. **만들기** (이 클라이언트의 ID는 앱 코드에서 사용하지 않음 — Google Play Services가 자동 인식)
+
+### 2-4. Supabase에 Google 연결
+1. Supabase Dashboard → **Authentication** → **Providers**
+2. **Google** 활성화
+3. 2-3-A에서 만든 **웹 클라이언트**의 Client ID, Client Secret 붙여넣기
+4. **Save**
+
+### 2-5. 앱에 Web Client ID 전달
+빌드 시 `--dart-define`으로 전달합니다:
+```bash
+flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
+```
+
+> **동작 흐름**: 앱 내 Google 계정 선택기 → ID 토큰 발급 → Supabase `signInWithIdToken()` → 세션 생성
 
 ---
 
-## 3단계: Kakao 로그인 설정 (10분)
+## 3단계: Kakao 로그인 설정 (10분) — Supabase OAuth 리다이렉트 방식
+
+> Kakao는 Supabase 내장 OAuth 리다이렉트 방식입니다.
+> "카카오로 시작하기" 버튼 → 브라우저에서 카카오 로그인 → 앱으로 복귀됩니다.
 
 ### 3-1. Kakao 앱 등록
 1. https://developers.kakao.com 접속 → 로그인
@@ -100,42 +119,26 @@ static const String anonKey = 'YOUR_ANON_KEY';                  // ← anon key 
 
 ### 3-2. 키 확인
 1. **앱 키** 탭에서 확인:
-   - **네이티브 앱 키**: `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
-   - **REST API 키**: 메모
+   - **REST API 키**: 복사 (Supabase에 입력할 Client ID)
+   - **보안 키**: **앱 키** → **보안** 탭에서 코드 생성 (Supabase에 입력할 Client Secret, 선택사항)
 
-### 3-3. 플랫폼 등록
-1. **플랫폼** 탭 → **Android 플랫폼 등록**
-2. 패키지명: `com.ducklog.ducklog`
-3. 키 해시: 아래 명령어로 얻기
-   ```bash
-   keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android | openssl dgst -sha1 -binary | openssl base64
-   ```
-4. **저장**
-
-### 3-4. 카카오 로그인 활성화
+### 3-3. 카카오 로그인 활성화
 1. **카카오 로그인** 탭 → **활성화 설정** ON
 2. **Redirect URI** 추가:
    ```
    https://YOUR_SUPABASE_PROJECT.supabase.co/auth/v1/callback
    ```
+   (YOUR_SUPABASE_PROJECT 부분을 실제 Supabase URL로 변경)
 3. **동의항목** → `프로필 정보`, `카카오계정(이메일)` → **필수 동의**로 설정
 
-### 3-5. Supabase에 Kakao 연결
+### 3-4. Supabase에 Kakao 연결
 1. Supabase Dashboard → **Authentication** → **Providers**
 2. **Kakao** 활성화
 3. REST API 키 → Client ID에 입력
-4. Client Secret은 공란 가능 (또는 보안 설정 후 입력)
+4. Client Secret은 공란 가능 (또는 보안 키 입력)
 5. **Save**
 
-### 3-6. Android 매니페스트 업데이트
-`android/app/src/main/AndroidManifest.xml`에서:
-```xml
-<data
-    android:scheme="kakao{YOUR_KAKAO_NATIVE_APP_KEY}"
-    android:host="oauth"/>
-```
-→ `{YOUR_KAKAO_NATIVE_APP_KEY}` 부분을 실제 네이티브 앱 키로 변경
-예: `android:scheme="kakaoabc123def456"`
+> **동작 흐름**: 브라우저 열림 → 카카오 로그인 → `com.ducklog.ducklog://login-callback` 리다이렉트 → 앱 복귀
 
 ---
 
@@ -207,7 +210,7 @@ start ms-settings:developers
 
 ## 개발 진행 상황
 
-> 최종 업데이트: 2026-03-05
+> 최종 업데이트: 2026-03-06
 
 ### 완료된 작업
 
@@ -295,8 +298,31 @@ start ms-settings:developers
 ### 남은 전체 로드맵
 - [x] **AniList API 연동** ✅
 - [x] **IGDB API 연동** ✅
-- [ ] Phase 3: 영수증 OCR (Gemini Vision Edge Function)
-- [ ] Phase 4: 통계 & 리포트 (fl_chart)
+- [x] Phase 3: 영수증 OCR — 스킵 (불필요 판단)
+- [x] **소셜 로그인 전략 구성** ✅ (Google 네이티브 SDK + Kakao Supabase OAuth)
+- [ ] Phase 4: 통계 & 리포트 (fl_chart) — 진행 중
 - [ ] Phase 5 나머지: 캘린더 자동 동기화 cron + 푸시 알림
 - [ ] Phase 6: 소셜 & 프로필
 - [ ] Phase 7: 폴리싱 & Play Store 출시
+
+---
+
+### 🚀 출시 전 TODO (프로덕션 체크리스트)
+
+#### 크레덴셜 & 보안
+- [ ] Google OAuth Client Secret **재발급** (현재 키 채팅에 노출됨 → Google Cloud Console → 사용자 인증 정보 → DuckLog Web → 비밀번호 재설정)
+- [ ] Google OAuth 동의 화면 **앱 게시** (테스트 → 프로덕션, 모든 Google 계정 로그인 허용)
+- [ ] Google OAuth **릴리스 서명 SHA-1** 추가 (현재는 debug 키만 등록됨, Play Console → 앱 서명 → SHA-1 복사 → Google Cloud Console Android 클라이언트에 추가)
+- [ ] IGDB Client ID/Secret → `--dart-define`으로 교체 (현재 코드에 하드코딩)
+- [ ] Supabase URL/anon key → `--dart-define`으로 교체 검토
+- [ ] `.vscode/launch.json`의 크레덴셜을 프로덕션 값으로 교체
+
+#### 외부 서비스
+- [ ] Twitch 앱 리디렉션 URL: `https://localhost` → 프로덕션 URL로 변경
+- [ ] Kakao 앱 플랫폼 설정 (릴리스 키 해시 등록)
+- [ ] Supabase 프로젝트 리전/플랜 검토
+
+#### 빌드 & 배포
+- [ ] Android release keystore 생성 및 서명 설정
+- [ ] `flutter build appbundle --release` 정상 빌드 확인
+- [ ] ProGuard/R8 난독화 설정 확인

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -67,13 +68,17 @@ class IgdbGame {
 class IgdbService {
   static const _tokenEndpoint = 'https://id.twitch.tv/oauth2/token';
   static const _apiEndpoint = 'https://api.igdb.com/v4';
+  static const _httpTimeout = Duration(seconds: 15);
+  static const _tokenMargin = Duration(seconds: 60);
 
   String? _accessToken;
   DateTime? _tokenExpiry;
+  Completer<String>? _tokenCompleter; // 동시 요청 방지
 
   bool get isConfigured => IgdbConfig.isConfigured;
 
   /// Twitch OAuth2 토큰 발급 (client_credentials)
+  /// 동시에 여러 요청이 들어와도 한 번만 토큰 발급
   Future<String> _getToken() async {
     if (_accessToken != null &&
         _tokenExpiry != null &&
@@ -81,23 +86,41 @@ class IgdbService {
       return _accessToken!;
     }
 
-    final response = await http.post(
-      Uri.parse(
-        '$_tokenEndpoint?client_id=${IgdbConfig.clientId}'
-        '&client_secret=${IgdbConfig.clientSecret}'
-        '&grant_type=client_credentials',
-      ),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Twitch 인증 실패: ${response.statusCode}');
+    // 이미 토큰 발급 진행 중이면 결과 대기
+    if (_tokenCompleter != null) {
+      return _tokenCompleter!.future;
     }
 
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    _accessToken = json['access_token'] as String;
-    _tokenExpiry = DateTime.now()
-        .add(Duration(seconds: json['expires_in'] as int));
-    return _accessToken!;
+    _tokenCompleter = Completer<String>();
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '$_tokenEndpoint?client_id=${IgdbConfig.clientId}'
+          '&client_secret=${IgdbConfig.clientSecret}'
+          '&grant_type=client_credentials',
+        ),
+      ).timeout(_httpTimeout);
+
+      if (response.statusCode != 200) {
+        throw Exception('Twitch 인증 실패: ${response.statusCode}');
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      _accessToken = json['access_token'] as String;
+      // 만료 전 마진을 두어 네트워크 지연으로 인한 만료 방지
+      _tokenExpiry = DateTime.now()
+          .add(Duration(seconds: json['expires_in'] as int))
+          .subtract(_tokenMargin);
+      _tokenCompleter!.complete(_accessToken!);
+      return _accessToken!;
+    } catch (e) {
+      _accessToken = null;
+      _tokenExpiry = null;
+      _tokenCompleter!.completeError(e);
+      rethrow;
+    } finally {
+      _tokenCompleter = null;
+    }
   }
 
   /// IGDB API 호출
@@ -110,7 +133,7 @@ class IgdbService {
         'Authorization': 'Bearer $token',
       },
       body: body,
-    );
+    ).timeout(_httpTimeout);
 
     if (response.statusCode != 200) {
       throw Exception('IGDB API error: ${response.statusCode}');

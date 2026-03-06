@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/friendship.dart';
+import '../../../shared/models/profile.dart';
 import '../../auth/services/auth_service.dart';
 
 final friendServiceProvider = Provider<FriendService>((ref) {
@@ -35,6 +36,15 @@ final pendingCountProvider = FutureProvider.autoDispose<int>((ref) async {
   return await service.getPendingCount();
 });
 
+/// Exception: 에러 메시지에 "Exception:" 접두어가 붙는 것을 방지
+class FriendException implements Exception {
+  final String message;
+  const FriendException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class FriendService {
   final SupabaseClient _client;
 
@@ -45,22 +55,42 @@ class FriendService {
   String? get _userId => currentUserId;
 
   /// 친구 요청 전송
+  /// - 이미 관계가 존재하면 중복 요청 방지
   /// - 상대가 이미 나에게 보낸 pending 요청이 있으면 바로 accepted 처리
   Future<void> sendRequest(String receiverId) async {
-    if (_userId == null) throw Exception('Not authenticated');
-    if (receiverId == _userId) throw Exception('자기 자신에게 요청할 수 없어요');
+    if (_userId == null) throw FriendException('로그인이 필요해요');
+    if (receiverId == _userId) throw FriendException('자기 자신에게 요청할 수 없어요');
 
-    // 상대가 먼저 나에게 보낸 pending 요청이 있는지 확인
+    // 내가 이미 보낸 요청이 있는지 확인
+    final existing = await _client
+        .from('friendships')
+        .select()
+        .eq('requester_id', _userId!)
+        .eq('receiver_id', receiverId)
+        .maybeSingle();
+
+    if (existing != null) {
+      final status = existing['status'] as String?;
+      if (status == 'accepted') {
+        throw FriendException('이미 친구예요');
+      }
+      throw FriendException('이미 요청을 보냈어요');
+    }
+
+    // 상대가 먼저 나에게 보낸 요청이 있는지 확인
     final reverse = await _client
         .from('friendships')
         .select()
         .eq('requester_id', receiverId)
         .eq('receiver_id', _userId!)
-        .eq('status', 'pending')
         .maybeSingle();
 
     if (reverse != null) {
-      // 양쪽 동시 요청 → 바로 수락 처리
+      final status = reverse['status'] as String?;
+      if (status == 'accepted') {
+        throw FriendException('이미 친구예요');
+      }
+      // 상대의 pending 요청 → 바로 수락 처리
       await _client
           .from('friendships')
           .update({'status': 'accepted'})
@@ -181,6 +211,21 @@ class FriendService {
     if (received != null) return Friendship.fromJson(received);
 
     return null;
+  }
+
+  /// 친구 코드로 프로필 검색
+  Future<Profile?> searchByFriendCode(String code) async {
+    final cleanCode = code.toLowerCase().trim();
+    if (cleanCode.isEmpty) return null;
+
+    final response = await _client
+        .from('profiles')
+        .select()
+        .eq('friend_code', cleanCode)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return Profile.fromJson(response);
   }
 
   /// 받은 pending 요청 수 (뱃지용)

@@ -48,9 +48,7 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('해제 실패: $e')),
-        );
+        DuckSnackBar.error(context, '해제 실패: $e');
       }
     }
   }

@@ -50,26 +50,50 @@ class FeedService {
   String? get _userId => _client.auth.currentUser?.id;
 
   /// Fetch public goods from all users (excluding self), newest first.
-  /// Joins with profiles to get owner info.
+  /// Joins with profiles and likes to get owner info + like data.
   Future<List<FeedItem>> getFeed({int page = 0, int pageSize = 20}) async {
     final from = page * pageSize;
     final to = from + pageSize - 1;
 
-    // Fetch public goods with profile join
+    // Fetch goods with profile + likes count
     final response = await _client
         .from('goods')
-        .select('*, profiles!goods_user_id_fkey(*)')
-        .eq('visibility', 'public')
+        .select('*, profiles!goods_user_id_fkey(*), likes(count)')
         .neq('user_id', _userId ?? '')
+        .inFilter('visibility', ['public', 'friends'])
         .order('created_at', ascending: false)
         .range(from, to);
 
+    // Batch fetch current user's liked goods IDs
+    final goodsIds = (response as List).map((r) => r['id'] as String).toList();
+    final Set<String> likedIds = {};
+    if (_userId != null && goodsIds.isNotEmpty) {
+      final likedResponse = await _client
+          .from('likes')
+          .select('goods_id')
+          .eq('user_id', _userId!)
+          .inFilter('goods_id', goodsIds);
+      for (final row in likedResponse as List) {
+        likedIds.add(row['goods_id'] as String);
+      }
+    }
+
     final items = <FeedItem>[];
-    for (final row in response as List) {
+    for (final row in response) {
       final profileData = row['profiles'] as Map<String, dynamic>?;
       if (profileData == null) continue;
 
-      final goods = Goods.fromJson(row);
+      // Extract like count from aggregation
+      final likesData = row['likes'] as List?;
+      final likeCount = (likesData != null && likesData.isNotEmpty)
+          ? (likesData[0]['count'] as int? ?? 0)
+          : 0;
+
+      final enriched = Map<String, dynamic>.from(row);
+      enriched['like_count'] = likeCount;
+      enriched['is_liked_by_me'] = likedIds.contains(row['id']);
+
+      final goods = Goods.fromJson(enriched);
       final owner = Profile.fromJson(profileData);
       items.add(FeedItem(goods: goods, owner: owner));
     }
@@ -87,17 +111,18 @@ class FeedService {
     return Profile.fromJson(response);
   }
 
-  /// Get another user's public goods
+  /// Get another user's visible goods (public + friends if friended)
   Future<List<Goods>> getUserPublicGoods(String userId,
       {int page = 0, int pageSize = 20}) async {
     final from = page * pageSize;
     final to = from + pageSize - 1;
 
+    // RLS handles friends visibility check
     final response = await _client
         .from('goods')
         .select()
         .eq('user_id', userId)
-        .eq('visibility', 'public')
+        .inFilter('visibility', ['public', 'friends'])
         .order('created_at', ascending: false)
         .range(from, to);
 

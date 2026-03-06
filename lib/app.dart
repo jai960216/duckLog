@@ -1,11 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/colors.dart';
 import 'config/theme.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/onboarding_screen.dart';
 import 'features/auth/services/auth_service.dart';
 import 'shell.dart';
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: DuckColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: DuckColors.outline, width: 3),
+              ),
+              child: const Center(
+                child: Text('\u{1F425}', style: TextStyle(fontSize: 48)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'DuckLog',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(color: DuckColors.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class DuckLogApp extends ConsumerWidget {
   const DuckLogApp({super.key});
@@ -37,11 +77,7 @@ class AuthGate extends ConsumerWidget {
         // Check if profile exists for onboarding
         return const _ProfileGate();
       },
-      loading: () => const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
+      loading: () => const _SplashScreen(),
       error: (_, __) => const LoginScreen(),
     );
   }
@@ -61,11 +97,7 @@ class _ProfileGate extends ConsumerWidget {
         }
         return const AppShell();
       },
-      loading: () => const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
+      loading: () => const _SplashScreen(),
       error: (_, __) => const OnboardingScreen(),
     );
   }

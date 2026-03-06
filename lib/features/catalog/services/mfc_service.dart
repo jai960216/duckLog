@@ -17,6 +17,9 @@ class MfcFigure {
     this.category,
   });
 
+  /// 선택 토글용 고유 키 (id=0인 경우 name 기반 해시로 구분)
+  int get uniqueKey => id != 0 ? id : name.hashCode;
+
   factory MfcFigure.fromJson(Map<String, dynamic> json) {
     return MfcFigure(
       id: json['id'] as int? ?? 0,

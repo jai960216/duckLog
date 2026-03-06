@@ -58,9 +58,9 @@ class AnilistMedia {
     // synonyms에서 한글 제목 찾기
     String? korean;
     for (final s in synonyms) {
-      final str = s as String;
-      if (_hangulRegex.hasMatch(str)) {
-        korean = str;
+      if (s is! String) continue;
+      if (_hangulRegex.hasMatch(s)) {
+        korean = s;
         break;
       }
     }
@@ -103,10 +103,11 @@ class AnilistAiringSchedule {
 class AnilistService {
   static const _endpoint = 'https://graphql.anilist.co';
 
+  static const _httpTimeout = Duration(seconds: 15);
+  static const _maxCacheSize = 500;
+
   /// 로컬 한국어 검색용 캐시 (트렌딩/방영중/이전 검색 결과 누적)
   static final Map<int, AnilistMedia> _mediaCache = {};
-
-  static final _hangulRegex = RegExp(r'[\uAC00-\uD7AF]');
 
   static const _searchQuery = r'''
 query ($search: String) {
@@ -163,10 +164,18 @@ query ($mediaId: Int) {
 }
 ''';
 
-  /// 캐시에 추가
+  /// 캐시에 추가 (최대 크기 제한)
   void _addToCache(List<AnilistMedia> list) {
     for (final media in list) {
       _mediaCache[media.id] = media;
+    }
+    // LRU는 아니지만, 오래된 항목부터 제거
+    if (_mediaCache.length > _maxCacheSize) {
+      final keysToRemove =
+          _mediaCache.keys.take(_mediaCache.length - _maxCacheSize).toList();
+      for (final key in keysToRemove) {
+        _mediaCache.remove(key);
+      }
     }
   }
 
@@ -239,12 +248,23 @@ query ($mediaId: Int) {
         'Accept': 'application/json',
       },
       body: jsonEncode({'query': query, 'variables': variables}),
-    );
+    ).timeout(_httpTimeout);
 
     if (response.statusCode != 200) {
       throw Exception('AniList API error: ${response.statusCode}');
     }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+
+    // GraphQL은 HTTP 200이어도 errors 필드에 에러를 담아 반환
+    final errors = json['errors'] as List<dynamic>?;
+    if (errors != null && errors.isNotEmpty) {
+      final firstMsg =
+          (errors.first as Map<String, dynamic>)['message'] ?? 'Unknown error';
+      throw Exception('AniList: $firstMsg');
+    }
+
+    return json;
   }
 
   Future<List<AnilistMedia>> _fetchMediaList(

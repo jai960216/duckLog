@@ -9,12 +9,19 @@
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nickname TEXT NOT NULL,
+  friend_code TEXT UNIQUE NOT NULL,  -- 6자리 영숫자 (예: "e1r8es")
   avatar_url TEXT,
   bio TEXT,
   sns_links JSONB DEFAULT '{}',
   is_public BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- ※ 기존 DB 마이그레이션 시:
+-- ALTER TABLE profiles ADD COLUMN friend_code TEXT UNIQUE;
+-- UPDATE profiles SET friend_code = substr(md5(random()::text), 1, 6) WHERE friend_code IS NULL;
+-- ALTER TABLE profiles ALTER COLUMN friend_code SET NOT NULL;
+-- DROP INDEX IF EXISTS idx_profiles_nickname;
 
 -- 굿즈 기록
 CREATE TABLE IF NOT EXISTS goods (
@@ -43,6 +50,10 @@ CREATE TABLE IF NOT EXISTS receipts (
   store_name TEXT,
   purchased_at DATE,
   is_processed BOOLEAN DEFAULT false,
+  category TEXT,
+  purchase_channel TEXT,
+  expense_type TEXT,
+  memo TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -141,12 +152,17 @@ CREATE TABLE IF NOT EXISTS catalog_collections (
 -- INDEXES
 -- ============================================
 
+CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON profiles(nickname);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_friend_code ON profiles(friend_code);
 CREATE INDEX IF NOT EXISTS idx_goods_user_id ON goods(user_id);
 CREATE INDEX IF NOT EXISTS idx_goods_purchased_at ON goods(purchased_at);
 CREATE INDEX IF NOT EXISTS idx_goods_category ON goods(category);
 CREATE INDEX IF NOT EXISTS idx_goods_work_tag ON goods(work_tag);
 CREATE INDEX IF NOT EXISTS idx_goods_catalog_item_id ON goods(catalog_item_id);
 CREATE INDEX IF NOT EXISTS idx_receipts_user_id ON receipts(user_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_category ON receipts(category);
+CREATE INDEX IF NOT EXISTS idx_receipts_purchase_channel ON receipts(purchase_channel);
+CREATE INDEX IF NOT EXISTS idx_receipts_expense_type ON receipts(expense_type);
 CREATE INDEX IF NOT EXISTS idx_followed_works_user_id ON followed_works(user_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
 CREATE INDEX IF NOT EXISTS idx_likes_goods_id ON likes(goods_id);

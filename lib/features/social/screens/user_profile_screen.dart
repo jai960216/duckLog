@@ -72,9 +72,24 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                   style: TextStyle(fontSize: 32))),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      profile.nickname,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          profile.nickname,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        if (profile.friendCode.isNotEmpty)
+                          Text(
+                            '#${profile.friendCode}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(color: DuckColors.textSub),
+                          ),
+                      ],
                     ),
                     if (profile.bio != null &&
                         profile.bio!.isNotEmpty) ...[
@@ -267,9 +282,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       ref.invalidate(pendingCountProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('요청 실패: $e')),
-        );
+        DuckSnackBar.error(context, '요청 실패: $e');
       }
     } finally {
       if (mounted) setState(() => _actionLoading = false);
@@ -309,9 +322,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       await action();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('처리 실패: $e')),
-        );
+        DuckSnackBar.error(context, '처리 실패: $e');
       }
     } finally {
       if (mounted) setState(() => _actionLoading = false);

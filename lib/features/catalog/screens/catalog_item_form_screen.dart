@@ -112,12 +112,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
             _photoUrl = null;
           });
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('아이템이 추가되었어요!'),
-                duration: Duration(seconds: 1),
-              ),
-            );
+            DuckSnackBar.success(context, '아이템이 추가되었어요!');
           }
         } else {
           if (mounted) Navigator.of(context).pop(true);
@@ -125,9 +120,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '저장에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

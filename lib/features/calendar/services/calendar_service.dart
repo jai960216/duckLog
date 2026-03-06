@@ -93,54 +93,64 @@ final monthAiringScheduleProvider =
     }
 
     final anilistService = ref.read(anilistServiceProvider);
+    final calendarService = ref.read(calendarServiceProvider);
     final entries = <AiringEntry>[];
 
-    for (final work in followedWorks) {
-      // ── 애니: AniList 방영 스케줄 ──
-      if (work.workType == 'anime') {
-        final mediaId = int.tryParse(work.externalId);
-        if (mediaId == null) continue;
+    // 애니와 게임 작품 분류
+    final animeWorks = followedWorks.where((w) => w.workType == 'anime').toList();
+    final gameWorks = followedWorks.where((w) => w.workType == 'game').toList();
 
-        try {
-          final schedules = await anilistService.getAiringSchedule(mediaId);
-          for (final schedule in schedules) {
-            final date = schedule.airingDateTime;
-            if (!date.isBefore(startDate) && !date.isAfter(endDate)) {
-              entries.add(AiringEntry(
-                title: work.title,
-                workType: work.workType,
-                externalId: work.externalId,
-                episode: schedule.episode,
-                airingDate: date,
-                eventType: 'airing',
-              ));
-            }
-          }
-        } catch (_) {}
-        continue;
+    // ── 애니: AniList 방영 스케줄 (병렬 호출) ──
+    final animeFutures = animeWorks.map((work) async {
+      final mediaId = int.tryParse(work.externalId);
+      if (mediaId == null) return <AiringEntry>[];
+      try {
+        final schedules = await anilistService.getAiringSchedule(mediaId);
+        return schedules
+            .where((s) {
+              final date = s.airingDateTime;
+              return !date.isBefore(startDate) && !date.isAfter(endDate);
+            })
+            .map((s) => AiringEntry(
+                  title: work.title,
+                  workType: work.workType,
+                  externalId: work.externalId,
+                  episode: s.episode,
+                  airingDate: s.airingDateTime,
+                  eventType: 'airing',
+                ))
+            .toList();
+      } catch (_) {
+        return <AiringEntry>[];
       }
+    });
 
-      // ── 게임: IGDB 출시일 (followed_works에 저장된 externalId로는
-      //    IGDB API를 다시 호출해야 하므로, Supabase calendar_events에서 조회) ──
-      if (work.workType == 'game') {
-        try {
-          final calendarService = ref.read(calendarServiceProvider);
-          final events =
-              await calendarService.getEventsForWork(work.externalId);
-          for (final event in events) {
-            final date = event.eventDate;
-            if (!date.isBefore(startDate) && !date.isAfter(endDate)) {
-              entries.add(AiringEntry(
-                title: work.title,
-                workType: work.workType,
-                externalId: work.externalId,
-                airingDate: date,
-                eventType: 'release',
-              ));
-            }
-          }
-        } catch (_) {}
+    // ── 게임: Supabase calendar_events (병렬 호출) ──
+    final gameFutures = gameWorks.map((work) async {
+      try {
+        final events =
+            await calendarService.getEventsForWork(work.externalId);
+        return events
+            .where((e) {
+              final date = e.eventDate;
+              return !date.isBefore(startDate) && !date.isAfter(endDate);
+            })
+            .map((e) => AiringEntry(
+                  title: work.title,
+                  workType: work.workType,
+                  externalId: work.externalId,
+                  airingDate: e.eventDate,
+                  eventType: 'release',
+                ))
+            .toList();
+      } catch (_) {
+        return <AiringEntry>[];
       }
+    });
+
+    final results = await Future.wait([...animeFutures, ...gameFutures]);
+    for (final list in results) {
+      entries.addAll(list);
     }
 
     entries.sort((a, b) => a.airingDate.compareTo(b.airingDate));

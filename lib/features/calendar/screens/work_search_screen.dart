@@ -88,9 +88,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
     } catch (e) {
       if (!mounted || gen != _searchGeneration) return;
       setState(() => _isSearching = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('검색 실패: $e')),
-      );
+      DuckSnackBar.error(context, '검색 실패: $e');
     }
   }
 
@@ -109,27 +107,25 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         externalId: media.id.toString(),
       );
 
-      // 방영 스케줄 자동 저장 (실패해도 OK)
+      // 방영 스케줄 자동 저장 (병렬, 실패해도 OK)
       try {
         final anilistService = ref.read(anilistServiceProvider);
         final schedules = await anilistService.getAiringSchedule(media.id);
-        for (final schedule in schedules) {
-          await calendarService.addEvent(
+        await Future.wait(
+          schedules.map((schedule) => calendarService.addEvent(
             workType: 'anime',
             externalId: media.id.toString(),
             title: media.displayTitle,
             eventType: 'airing',
             eventDate: schedule.airingDateTime,
             episodeNumber: schedule.episode,
-          );
-        }
+          )),
+        );
       } catch (_) {}
 
       ref.invalidate(followedWorksProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\'${media.displayTitle}\' 팔로우 시작!')),
-        );
+        DuckSnackBar.success(context, '\'${media.displayTitle}\' 팔로우 시작!');
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => WorkDetailScreen(work: work)),
@@ -137,9 +133,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('추가 실패: $e')),
-        );
+        DuckSnackBar.error(context, '추가 실패: $e');
       }
     } finally {
       if (mounted) setState(() => _followingId = null);
@@ -176,9 +170,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
 
       ref.invalidate(followedWorksProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('\'${game.name}\' 팔로우 시작!')),
-        );
+        DuckSnackBar.success(context, '\'${game.name}\' 팔로우 시작!');
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => WorkDetailScreen(work: work)),
@@ -186,9 +178,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('추가 실패: $e')),
-        );
+        DuckSnackBar.error(context, '추가 실패: $e');
       }
     } finally {
       if (mounted) setState(() => _followingId = null);
@@ -220,9 +210,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       ref.invalidate(followedWorksProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('해제 실패: $e')),
-        );
+        DuckSnackBar.error(context, '해제 실패: $e');
       }
     }
   }

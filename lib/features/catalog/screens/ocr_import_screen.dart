@@ -114,15 +114,11 @@ class _OcrImportScreenState extends ConsumerState<OcrImportScreen> {
   Future<void> _createCatalog() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('도감 이름을 입력해주세요')),
-      );
+      DuckSnackBar.info(context, '도감 이름을 입력해주세요');
       return;
     }
     if (_items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('아이템을 1개 이상 추가해주세요')),
-      );
+      DuckSnackBar.info(context, '아이템을 1개 이상 추가해주세요');
       return;
     }
 
@@ -149,9 +145,7 @@ class _OcrImportScreenState extends ConsumerState<OcrImportScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('도감 생성에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '도감 생성에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isCreating = false);

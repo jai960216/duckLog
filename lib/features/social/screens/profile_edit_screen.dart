@@ -1,7 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../config/supabase_config.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
 
@@ -20,6 +25,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _twitterController = TextEditingController();
   bool _isPublic = true;
   bool _isLoading = false;
+  String? _avatarUrl;
+  String _friendCode = '';
 
   @override
   void initState() {
@@ -34,7 +41,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       _bioController.text = profile.bio ?? '';
       _instagramController.text = profile.snsLinks['instagram'] ?? '';
       _twitterController.text = profile.snsLinks['twitter'] ?? '';
-      setState(() => _isPublic = profile.isPublic);
+      setState(() {
+        _isPublic = profile.isPublic;
+        _avatarUrl = profile.avatarUrl;
+        _friendCode = profile.friendCode;
+      });
     }
   }
 
@@ -47,13 +58,60 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     super.dispose();
   }
 
+  Future<void> _pickAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 400,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final ext = picked.name.split('.').last.toLowerCase();
+      final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final client = ref.read(supabaseClientProvider);
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) {
+        if (mounted) DuckSnackBar.error(context, '로그인이 필요해요');
+        return;
+      }
+      final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      await client.storage.from(SupabaseConfig.avatarBucket).uploadBinary(
+        path,
+        Uint8List.fromList(bytes),
+        fileOptions: FileOptions(contentType: contentType, upsert: true),
+      );
+
+      final publicUrl = client.storage
+          .from(SupabaseConfig.avatarBucket)
+          .getPublicUrl(path);
+
+      setState(() => _avatarUrl = publicUrl);
+    } catch (e) {
+      if (mounted) {
+        DuckSnackBar.error(context, '이미지 업로드에 실패했어요: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
       final client = ref.read(supabaseClientProvider);
-      final userId = client.auth.currentUser!.id;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) {
+        if (mounted) DuckSnackBar.error(context, '로그인이 필요해요');
+        return;
+      }
+      final nickname = _nicknameController.text.trim();
 
       final snsLinks = <String, String>{};
       if (_instagramController.text.trim().isNotEmpty) {
@@ -64,30 +122,68 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       }
 
       await client.from('profiles').update({
-        'nickname': _nicknameController.text.trim(),
+        'nickname': nickname,
         'bio': _bioController.text.trim().isEmpty
             ? null
             : _bioController.text.trim(),
         'sns_links': snsLinks,
         'is_public': _isPublic,
+        'avatar_url': _avatarUrl,
       }).eq('id', userId);
 
       ref.invalidate(currentProfileProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('프로필이 저장되었어요!')),
-        );
+        DuckSnackBar.success(context, '프로필이 저장되었어요!');
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '저장에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('회원탈퇴'),
+        content: const Text(
+          '정말 탈퇴하시겠어요?\n모든 데이터가 삭제되며 복구할 수 없어요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _executeDeleteAccount();
+            },
+            child: const Text('탈퇴하기',
+                style: TextStyle(color: DuckColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeDeleteAccount() async {
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(authServiceProvider).deleteAccount();
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        DuckSnackBar.error(context, '탈퇴에 실패했어요: $e');
+      }
     }
   }
 
@@ -116,34 +212,56 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           children: [
             // Avatar
             Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: DuckColors.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: DuckColors.outline, width: 3),
-                    ),
-                    child: const Center(
-                      child: Text('🐥', style: TextStyle(fontSize: 40)),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: DuckColors.primary,
+              child: GestureDetector(
+                onTap: _pickAvatar,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: DuckColors.surface,
                         shape: BoxShape.circle,
+                        border:
+                            Border.all(color: DuckColors.outline, width: 3),
                       ),
-                      child: const Icon(PhosphorIconsBold.camera,
-                          size: 16, color: DuckColors.outline),
+                      child: _avatarUrl != null
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: _avatarUrl!,
+                                width: 96,
+                                height: 96,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                ),
+                                errorWidget: (_, __, ___) => const Center(
+                                  child: Text('🐥',
+                                      style: TextStyle(fontSize: 40)),
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child:
+                                  Text('🐥', style: TextStyle(fontSize: 40)),
+                            ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: DuckColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(PhosphorIconsBold.camera,
+                            size: 16, color: DuckColors.outline),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 32),
@@ -160,6 +278,45 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               },
             ),
             const SizedBox(height: 16),
+
+            // 친구 코드 (읽기 전용)
+            if (_friendCode.isNotEmpty) ...[
+              DuckCard(
+                margin: EdgeInsets.zero,
+                child: Row(
+                  children: [
+                    const Icon(PhosphorIconsBold.hash,
+                        size: 18, color: DuckColors.textSub),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('친구 코드',
+                              style: Theme.of(context).textTheme.labelSmall),
+                          Text(
+                            _friendCode,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(letterSpacing: 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(PhosphorIconsBold.copy,
+                          size: 18, color: DuckColors.primary),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _friendCode));
+                        DuckSnackBar.success(context, '친구 코드가 복사되었어요!');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             DuckTextField(
               label: '자기소개',
@@ -227,9 +384,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             // Delete account
             Center(
               child: TextButton(
-                onPressed: () {
-                  // TODO: Implement account deletion with confirmation
-                },
+                onPressed: () => _confirmDeleteAccount(),
                 child: Text(
                   '회원탈퇴',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(

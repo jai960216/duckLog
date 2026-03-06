@@ -22,6 +22,13 @@ final goodsListProvider =
   },
 );
 
+// Monthly spending entry for history chart
+class MonthlySpendingEntry {
+  final DateTime month;
+  final int amount;
+  const MonthlySpendingEntry({required this.month, required this.amount});
+}
+
 // Monthly stats data class
 class MonthlyStats {
   final int goodsCount;
@@ -61,6 +68,34 @@ final monthlySpendingProvider =
       return await service.getMonthlySpending(month);
     } catch (e) {
       return 0;
+    }
+  },
+);
+
+// Provider for work tag spending - key is "yyyy-MM" string
+final workTagSpendingProvider =
+    FutureProvider.autoDispose.family<Map<String, int>, String>(
+  (ref, monthKey) async {
+    try {
+      final parts = monthKey.split('-');
+      final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+      final service = ref.read(goodsServiceProvider);
+      return await service.getWorkTagSpending(month);
+    } catch (e) {
+      return {};
+    }
+  },
+);
+
+// Provider for spending history - key is number of months
+final spendingHistoryProvider =
+    FutureProvider.autoDispose.family<List<MonthlySpendingEntry>, int>(
+  (ref, months) async {
+    try {
+      final service = ref.read(goodsServiceProvider);
+      return await service.getMonthlySpendingHistory(months);
+    } catch (e) {
+      return [];
     }
   },
 );
@@ -163,9 +198,21 @@ class GoodsService {
     return Goods.fromJson(response);
   }
 
-  // Read - list with filters
+  // Read - all goods (no pagination, for export)
+  Future<List<Goods>> getAllGoods() async {
+    final response = await _client
+        .from('goods')
+        .select()
+        .eq('user_id', _userId)
+        .order('purchased_at', ascending: false)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((e) => Goods.fromJson(e)).toList();
+  }
+
+  // Read - list with filters (with like counts)
   Future<List<Goods>> getGoods({GoodsFilter filter = const GoodsFilter()}) async {
-    var query = _client.from('goods').select().eq('user_id', _userId);
+    var query = _client.from('goods').select('*, likes(count)').eq('user_id', _userId);
 
     if (filter.category != null) {
       query = query.eq('category', filter.category!);
@@ -193,14 +240,33 @@ class GoodsService {
         .order('created_at', ascending: false)
         .range(from, to);
 
-    return (response as List).map((e) => Goods.fromJson(e)).toList();
+    return (response as List).map((e) {
+      final likesData = e['likes'] as List?;
+      final likeCount = (likesData != null && likesData.isNotEmpty)
+          ? (likesData[0]['count'] as int? ?? 0)
+          : 0;
+      final enriched = Map<String, dynamic>.from(e);
+      enriched['like_count'] = likeCount;
+      return Goods.fromJson(enriched);
+    }).toList();
   }
 
-  // Read - single
+  // Read - single (with like count)
   Future<Goods> getGoodsById(String id) async {
-    final response =
-        await _client.from('goods').select().eq('id', id).single();
-    return Goods.fromJson(response);
+    final response = await _client
+        .from('goods')
+        .select('*, likes(count)')
+        .eq('id', id)
+        .single();
+
+    final likesData = response['likes'] as List?;
+    final likeCount = (likesData != null && likesData.isNotEmpty)
+        ? (likesData[0]['count'] as int? ?? 0)
+        : 0;
+
+    final enriched = Map<String, dynamic>.from(response);
+    enriched['like_count'] = likeCount;
+    return Goods.fromJson(enriched);
   }
 
   // Update
@@ -284,6 +350,62 @@ class GoodsService {
       result[category] = (result[category] ?? 0) + price;
     }
     return result;
+  }
+
+  // Work tag spending for a month
+  Future<Map<String, int>> getWorkTagSpending(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0);
+
+    final response = await _client
+        .from('goods')
+        .select('work_tag, price')
+        .eq('user_id', _userId)
+        .gte('purchased_at', startOfMonth.toIso8601String().split('T').first)
+        .lte('purchased_at', endOfMonth.toIso8601String().split('T').first);
+
+    final Map<String, int> result = {};
+    for (final row in response as List) {
+      final workTag = row['work_tag'] as String?;
+      if (workTag == null || workTag.isEmpty) continue;
+      final price = (row['price'] as int?) ?? 0;
+      result[workTag] = (result[workTag] ?? 0) + price;
+    }
+    return result;
+  }
+
+  // Monthly spending history for last N months (single query)
+  Future<List<MonthlySpendingEntry>> getMonthlySpendingHistory(int months) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month - months + 1, 1);
+    final end = DateTime(now.year, now.month + 1, 0);
+
+    final response = await _client
+        .from('goods')
+        .select('price, purchased_at')
+        .eq('user_id', _userId)
+        .gte('purchased_at', start.toIso8601String().split('T').first)
+        .lte('purchased_at', end.toIso8601String().split('T').first);
+
+    // Group by year-month
+    final Map<String, int> monthlyTotals = {};
+    for (final row in response as List) {
+      final price = (row['price'] as int?) ?? 0;
+      final dateStr = row['purchased_at'] as String?;
+      if (dateStr == null) continue;
+      final date = DateTime.parse(dateStr);
+      final key = '${date.year}-${date.month}';
+      monthlyTotals[key] = (monthlyTotals[key] ?? 0) + price;
+    }
+
+    // Build entries for each month
+    final entries = <MonthlySpendingEntry>[];
+    for (int i = months - 1; i >= 0; i--) {
+      final m = DateTime(now.year, now.month - i);
+      final key = '${m.year}-${m.month}';
+      entries.add(MonthlySpendingEntry(month: m, amount: monthlyTotals[key] ?? 0));
+    }
+    return entries;
   }
 
   // Upload photo to Supabase Storage

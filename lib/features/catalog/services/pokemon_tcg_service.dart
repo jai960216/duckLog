@@ -61,11 +61,17 @@ class PokemonCard {
 
 class PokemonTcgService {
   static const _baseUrl = 'https://api.tcgdex.net/v2';
+  static const _httpTimeout = Duration(seconds: 15);
+
+  /// 세트 목록 캐시 (전체 재요청 방지)
+  List<PokemonSet>? _setsCache;
 
   /// 영문 세트 목록 (카드 데이터 포함)
   Future<List<PokemonSet>> getSets() async {
+    if (_setsCache != null) return _setsCache!;
+
     final uri = Uri.parse('$_baseUrl/en/sets');
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(_httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('Pokemon TCG API 오류: ${response.statusCode}');
     }
@@ -82,10 +88,11 @@ class PokemonTcgService {
       if (b.releaseDate == null) return -1;
       return b.releaseDate!.compareTo(a.releaseDate!);
     });
+    _setsCache = sets;
     return sets;
   }
 
-  /// 세트 이름으로 필터링
+  /// 세트 이름으로 필터링 (캐시된 전체 목록에서 검색)
   Future<List<PokemonSet>> searchSets(String query) async {
     final all = await getSets();
     final lower = query.toLowerCase();
@@ -95,7 +102,7 @@ class PokemonTcgService {
   /// 특정 세트의 카드 목록
   Future<List<PokemonCard>> getCardsBySet(String setId) async {
     final uri = Uri.parse('$_baseUrl/en/sets/$setId');
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(_httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('세트 정보를 불러올 수 없어요: ${response.statusCode}');
     }

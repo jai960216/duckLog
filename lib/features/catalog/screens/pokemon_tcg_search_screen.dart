@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
+import '../../../shared/widgets/widgets.dart';
 import '../services/pokemon_tcg_service.dart';
 import '../services/catalog_service.dart';
 import 'catalog_detail_screen.dart';
@@ -78,9 +79,7 @@ class _PokemonTcgSearchScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('도감 생성에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '도감 생성에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isCreating = false);

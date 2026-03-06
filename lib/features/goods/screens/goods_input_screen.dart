@@ -270,9 +270,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장에 실패했어요: $e')),
-        );
+        DuckSnackBar.error(context, '저장에 실패했어요: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

@@ -13,7 +13,10 @@ import 'features/catalog/screens/pokemon_tcg_search_screen.dart';
 import 'features/catalog/screens/catalog_form_screen.dart';
 import 'features/catalog/services/catalog_service.dart';
 import 'features/goods/screens/goods_input_screen.dart';
+import 'features/goods/screens/receipt_scan_screen.dart';
 import 'features/goods/services/goods_service.dart';
+import 'features/goods/services/receipt_service.dart';
+import 'features/social/screens/notification_settings_screen.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -53,10 +56,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.invalidate(monthlySpendingProvider);
   }
 
-  void _navigateToCatalogScreen(Widget screen) async {
+  Future<void> _navigateToCatalogScreen(Widget screen) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
     );
+    if (!mounted) return;
     ref.invalidate(myCatalogsProvider);
   }
 
@@ -206,11 +210,14 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: const Icon(PhosphorIconsBold.receipt,
                       size: 20, color: DuckColors.outline),
                 ),
-                title: const Text('영수증 촬영'),
-                subtitle: const Text('영수증을 찍으면 자동으로 인식해요'),
+                title: const Text('영수증 보관'),
+                subtitle: const Text('영수증을 찍어서 보관해요'),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Navigate to receipt OCR screen
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const ReceiptScanScreen()),
+                  ).then((_) => ref.invalidate(receiptListProvider));
                 },
               ),
             ],
@@ -230,7 +237,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             IconButton(
               icon: const Icon(PhosphorIconsBold.bell, size: 22),
               onPressed: () {
-                // TODO: Notifications
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationSettingsScreen()),
+                );
               },
             ),
         ],
