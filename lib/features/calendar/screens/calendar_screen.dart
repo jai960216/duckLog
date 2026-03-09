@@ -159,16 +159,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ),
             // Followed work chips
             ...works.map((work) {
-              final isAnime = work.workType == 'anime';
+              final (icon, bgColor) = switch (work.workType) {
+                'anime' => (PhosphorIconsBold.television, DuckColors.subLight),
+                'manga' => (PhosphorIconsBold.bookOpen, DuckColors.primaryLight),
+                'webtoon' => (PhosphorIconsBold.bookOpen, DuckColors.webtoonLight),
+                _ => (PhosphorIconsBold.gameController, DuckColors.accentLight),
+              };
               return Padding(
                 padding: const EdgeInsets.only(left: 8),
                 child: DuckChip(
                   label: work.title,
-                  icon: isAnime
-                      ? PhosphorIconsBold.television
-                      : PhosphorIconsBold.gameController,
-                  backgroundColor:
-                      isAnime ? DuckColors.subLight : DuckColors.accentLight,
+                  icon: icon,
+                  backgroundColor: bgColor,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -303,6 +305,28 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                   ),
+                                if (dayTypes.contains('manga'))
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    margin: const EdgeInsets.only(
+                                        top: 2, right: 1),
+                                    decoration: const BoxDecoration(
+                                      color: DuckColors.primary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                if (dayTypes.contains('webtoon'))
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    margin: const EdgeInsets.only(
+                                        top: 2, right: 1),
+                                    decoration: const BoxDecoration(
+                                      color: DuckColors.webtoon,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 if (dayTypes.contains('game'))
                                   Container(
                                     width: 5,
@@ -369,6 +393,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           itemBuilder: (context, index) {
             final entry = dayEntries[index];
 
+            final (indicatorColor, iconData, eventLabel) = switch (entry.workType) {
+              'anime' => (DuckColors.sub, PhosphorIconsBold.television, '방영'),
+              'manga' => (DuckColors.primary, PhosphorIconsBold.bookOpen, '연재'),
+              'webtoon' => (DuckColors.webtoon, PhosphorIconsBold.bookOpen, '업데이트'),
+              _ => (DuckColors.accent, PhosphorIconsBold.gameController, '출시'),
+            };
+
             return DuckCard(
               child: Row(
                 children: [
@@ -377,9 +408,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     width: 4,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: entry.isAnime
-                          ? DuckColors.sub
-                          : DuckColors.accent,
+                      color: indicatorColor,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -397,15 +426,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         Row(
                           children: [
                             Icon(
-                              entry.isAnime
-                                  ? PhosphorIconsBold.television
-                                  : PhosphorIconsBold.gameController,
+                              iconData,
                               size: 12,
                               color: DuckColors.textSub,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              entry.isAnime ? '방영' : '출시',
+                              eventLabel,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall

@@ -9,7 +9,6 @@ import 'catalog_detail_screen.dart';
 import 'direct_catalog_create_screen.dart';
 import 'anilist_character_screen.dart';
 import 'pokemon_tcg_search_screen.dart';
-import 'ocr_import_screen.dart';
 
 class CatalogListScreen extends ConsumerStatefulWidget {
   const CatalogListScreen({super.key});
@@ -81,16 +80,6 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
                 onTap: () {
                   Navigator.pop(context);
                   _navigateTo(const AnilistCharacterScreen());
-                },
-              ),
-              _createOption(
-                icon: PhosphorIconsBold.scan,
-                color: DuckColors.subLight,
-                title: '이미지에서 추출',
-                subtitle: '체크리스트 이미지에서 아이템을 추출해요',
-                onTap: () {
-                  Navigator.pop(context);
-                  _navigateTo(const OcrImportScreen());
                 },
               ),
             ],

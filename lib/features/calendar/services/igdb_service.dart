@@ -17,6 +17,10 @@ class IgdbGame {
   final String? releaseDateHuman; // "Mar 28, 2026" 등
   final double? rating;
   final int? hypes; // 출시 전 관심도
+  final List<String> genres;
+  final List<String> platforms;
+  final String? summary;
+  final String? url; // IGDB 페이지 URL
 
   const IgdbGame({
     required this.id,
@@ -26,6 +30,10 @@ class IgdbGame {
     this.releaseDateHuman,
     this.rating,
     this.hypes,
+    this.genres = const [],
+    this.platforms = const [],
+    this.summary,
+    this.url,
   });
 
   factory IgdbGame.fromJson(Map<String, dynamic> json) {
@@ -53,6 +61,18 @@ class IgdbGame {
           (releaseDates.first as Map<String, dynamic>)['human'] as String?;
     }
 
+    // 장르
+    final genreList = json['genres'] as List<dynamic>? ?? [];
+    final genres = genreList
+        .map((g) => (g as Map<String, dynamic>)['name'] as String)
+        .toList();
+
+    // 플랫폼
+    final platformList = json['platforms'] as List<dynamic>? ?? [];
+    final platforms = platformList
+        .map((p) => (p as Map<String, dynamic>)['name'] as String)
+        .toList();
+
     return IgdbGame(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
@@ -61,6 +81,10 @@ class IgdbGame {
       releaseDateHuman: releaseDateHuman,
       rating: (json['rating'] as num?)?.toDouble(),
       hypes: json['hypes'] as int?,
+      genres: genres,
+      platforms: platforms,
+      summary: json['summary'] as String?,
+      url: json['url'] as String?,
     );
   }
 }
@@ -177,7 +201,8 @@ class IgdbService {
       'games',
       'search "$escaped";'
       ' fields name,cover.image_id,first_release_date,'
-      'release_dates.human,release_dates.date,rating;'
+      'release_dates.human,release_dates.date,rating,'
+      'genres.name,platforms.name,summary,url;'
       ' limit 10;',
     );
 
@@ -192,7 +217,8 @@ class IgdbService {
     final results = await _query(
       'games',
       'fields name,cover.image_id,first_release_date,'
-      'release_dates.human,hypes;'
+      'release_dates.human,hypes,'
+      'genres.name,platforms.name,summary,url;'
       ' where first_release_date > $nowUnix & hypes > 0;'
       ' sort hypes desc;'
       ' limit 20;',
@@ -222,7 +248,8 @@ class IgdbService {
     final results = await _query(
       'games',
       'fields name,cover.image_id,first_release_date,'
-      'release_dates.human,release_dates.date;'
+      'release_dates.human,release_dates.date,'
+      'genres.name,platforms.name,summary,url;'
       ' where first_release_date > $nowUnix & hypes > 5;'
       ' sort first_release_date asc;'
       ' limit 20;',

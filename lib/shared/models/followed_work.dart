@@ -1,7 +1,7 @@
 class FollowedWork {
   final String id;
   final String userId;
-  final String workType; // anime / game
+  final String workType; // anime / manga / webtoon / game
   final String externalId;
   final String title;
   final String? coverUrl;

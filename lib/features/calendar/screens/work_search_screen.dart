@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
+import '../../../shared/models/followed_work.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../services/anilist_service.dart';
 import '../services/igdb_service.dart';
+import '../services/webtoon_service.dart';
 import '../services/calendar_service.dart';
 import 'work_detail_screen.dart';
 
@@ -20,11 +22,11 @@ class WorkSearchScreen extends ConsumerStatefulWidget {
 class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String _selectedType = 'anime'; // anime or game
+  String _selectedType = 'anime'; // anime, manga, webtoon, or game
 
   // 검색
   final _searchController = TextEditingController();
-  List<dynamic> _searchResults = []; // AnilistMedia or IgdbGame
+  List<dynamic> _searchResults = []; // AnilistMedia, IgdbGame, or WebtoonData
   bool _isSearching = false;
   Timer? _debounce;
 
@@ -33,6 +35,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
 
   // 팔로우 진행 중 ID
   int? _followingId;
+  String? _followingWebtoonId;
 
   @override
   void initState() {
@@ -74,6 +77,12 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       if (_selectedType == 'anime') {
         final service = ref.read(anilistServiceProvider);
         results = await service.searchAnime(query);
+      } else if (_selectedType == 'manga') {
+        final service = ref.read(anilistServiceProvider);
+        results = await service.searchManga(query);
+      } else if (_selectedType == 'webtoon') {
+        final service = ref.read(webtoonServiceProvider);
+        results = await service.searchWebtoons(query);
       } else {
         final service = ref.read(igdbServiceProvider);
         if (!service.isConfigured) return;
@@ -128,7 +137,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         DuckSnackBar.success(context, '\'${media.displayTitle}\' 팔로우 시작!');
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => WorkDetailScreen(work: work)),
+          MaterialPageRoute(
+            builder: (_) => WorkDetailScreen(work: work, animeData: media),
+          ),
         );
       }
     } catch (e) {
@@ -137,6 +148,120 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       }
     } finally {
       if (mounted) setState(() => _followingId = null);
+    }
+  }
+
+  // ── 팔로우: 만화 ──
+
+  Future<void> _followManga(AnilistMedia media) async {
+    if (_followingId != null) return;
+    setState(() => _followingId = media.id);
+
+    try {
+      final calendarService = ref.read(calendarServiceProvider);
+      final work = await calendarService.followWork(
+        workType: 'manga',
+        title: media.displayTitle,
+        coverUrl: media.coverImageUrl,
+        externalId: media.id.toString(),
+      );
+
+      ref.invalidate(followedWorksProvider);
+      if (mounted) {
+        DuckSnackBar.success(context, '\'${media.displayTitle}\' 팔로우 시작!');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WorkDetailScreen(work: work, animeData: media),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        DuckSnackBar.error(context, '추가 실패: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _followingId = null);
+    }
+  }
+
+  // ── 팔로우: 웹툰 ──
+
+  Future<void> _followWebtoon(WebtoonData webtoon) async {
+    if (_followingWebtoonId != null) return;
+    setState(() => _followingWebtoonId = webtoon.id);
+
+    try {
+      final calendarService = ref.read(calendarServiceProvider);
+      final work = await calendarService.followWork(
+        workType: 'webtoon',
+        title: webtoon.displayTitle,
+        coverUrl: webtoon.thumbnailUrl,
+        externalId: webtoon.id,
+      );
+
+      // 연재 요일 기반 향후 4주간 캘린더 이벤트 생성 (실패해도 OK)
+      if (webtoon.updateDays.isNotEmpty && !webtoon.isEnd) {
+        try {
+          const dayToWeekday = {
+            'MON': DateTime.monday,
+            'TUE': DateTime.tuesday,
+            'WED': DateTime.wednesday,
+            'THU': DateTime.thursday,
+            'FRI': DateTime.friday,
+            'SAT': DateTime.saturday,
+            'SUN': DateTime.sunday,
+          };
+
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final futures = <Future>[];
+
+          for (final day in webtoon.updateDays) {
+            final weekday = dayToWeekday[day];
+            if (weekday == null) continue;
+
+            for (int week = 0; week < 4; week++) {
+              // 이번 주 해당 요일 계산
+              final diff = weekday - today.weekday;
+              final targetDate =
+                  today.add(Duration(days: diff + (week * 7)));
+              // 과거 날짜는 건너뜀
+              if (targetDate.isBefore(today)) continue;
+
+              futures.add(calendarService.addEvent(
+                workType: 'webtoon',
+                externalId: webtoon.id,
+                title: webtoon.displayTitle,
+                eventType: 'update',
+                eventDate: targetDate,
+              ));
+            }
+          }
+          await Future.wait(futures);
+        } catch (_) {}
+      }
+
+      ref.invalidate(followedWorksProvider);
+      if (mounted) {
+        DuckSnackBar.success(
+            context, '\'${webtoon.displayTitle}\' 팔로우 시작!');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WorkDetailScreen(
+              work: work,
+              webtoonData: webtoon,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        DuckSnackBar.error(context, '추가 실패: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _followingWebtoonId = null);
     }
   }
 
@@ -173,7 +298,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         DuckSnackBar.success(context, '\'${game.name}\' 팔로우 시작!');
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => WorkDetailScreen(work: work)),
+          MaterialPageRoute(
+            builder: (_) => WorkDetailScreen(work: work, gameData: game),
+          ),
         );
       }
     } catch (e) {
@@ -229,6 +356,20 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
   @override
   Widget build(BuildContext context) {
     final isAnime = _selectedType == 'anime';
+    final isManga = _selectedType == 'manga';
+    final isWebtoon = _selectedType == 'webtoon';
+    final isGame = _selectedType == 'game';
+
+    String tab2Label;
+    if (isAnime) {
+      tab2Label = '방영 중';
+    } else if (isManga) {
+      tab2Label = '연재 중';
+    } else if (isWebtoon) {
+      tab2Label = '요일별';
+    } else {
+      tab2Label = '출시 예정';
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -251,9 +392,25 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
                     ),
                     const SizedBox(width: 8),
                     DuckChip(
+                      label: '만화',
+                      icon: PhosphorIconsBold.bookOpen,
+                      selected: isManga,
+                      backgroundColor: DuckColors.primaryLight,
+                      onTap: () => _switchType('manga'),
+                    ),
+                    const SizedBox(width: 8),
+                    DuckChip(
+                      label: '웹툰',
+                      icon: PhosphorIconsBold.bookOpen,
+                      selected: isWebtoon,
+                      backgroundColor: DuckColors.webtoonLight,
+                      onTap: () => _switchType('webtoon'),
+                    ),
+                    const SizedBox(width: 8),
+                    DuckChip(
                       label: '게임',
                       icon: PhosphorIconsBold.gameController,
-                      selected: !isAnime,
+                      selected: isGame,
                       backgroundColor: DuckColors.accentLight,
                       onTap: () => _switchType('game'),
                     ),
@@ -271,7 +428,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
                 indicatorWeight: 3,
                 tabs: [
                   const Tab(text: '인기'),
-                  Tab(text: isAnime ? '방영 중' : '출시 예정'),
+                  Tab(text: tab2Label),
                   const Tab(text: '검색'),
                   const Tab(text: '내 작품'),
                 ],
@@ -284,17 +441,33 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         controller: _tabController,
         children: [
           // Tab 1: 인기
-          isAnime
-              ? _AnimeTrendingTab(
-                  onFollow: _followAnime, followingId: _followingId)
-              : _GamePopularTab(
-                  onFollow: _followGame, followingId: _followingId),
-          // Tab 2: 방영 중 / 출시 예정
-          isAnime
-              ? _AnimeAiringTab(
-                  onFollow: _followAnime, followingId: _followingId)
-              : _GameUpcomingTab(
-                  onFollow: _followGame, followingId: _followingId),
+          if (isAnime)
+            _AnimeTrendingTab(
+                onFollow: _followAnime, followingId: _followingId)
+          else if (isManga)
+            _MangaTrendingTab(
+                onFollow: _followManga, followingId: _followingId)
+          else if (isWebtoon)
+            _WebtoonTrendingTab(
+                onFollow: _followWebtoon,
+                followingWebtoonId: _followingWebtoonId)
+          else
+            _GamePopularTab(
+                onFollow: _followGame, followingId: _followingId),
+          // Tab 2: 방영 중 / 연재 중 / 요일별 / 출시 예정
+          if (isAnime)
+            _AnimeAiringTab(
+                onFollow: _followAnime, followingId: _followingId)
+          else if (isManga)
+            _MangaPublishingTab(
+                onFollow: _followManga, followingId: _followingId)
+          else if (isWebtoon)
+            _WebtoonWeekdayTab(
+                onFollow: _followWebtoon,
+                followingWebtoonId: _followingWebtoonId)
+          else
+            _GameUpcomingTab(
+                onFollow: _followGame, followingId: _followingId),
           // Tab 3: 검색
           _buildSearchTab(),
           // Tab 4: 내 작품
@@ -308,14 +481,49 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
 
   Widget _buildSearchTab() {
     final isAnime = _selectedType == 'anime';
+    final isManga = _selectedType == 'manga';
+    final isWebtoon = _selectedType == 'webtoon';
+    final isGame = _selectedType == 'game';
     final igdbConfigured = ref.read(igdbServiceProvider).isConfigured;
+    final webtoonConfigured = ref.read(webtoonServiceProvider).isConfigured;
+
+    String hintText;
+    if (isAnime) {
+      hintText = '애니 제목으로 검색';
+    } else if (isManga) {
+      hintText = '만화/소설 제목으로 검색';
+    } else if (isWebtoon) {
+      hintText = '웹툰 제목으로 검색';
+    } else {
+      hintText = '게임 제목으로 검색';
+    }
+
+    String emptyMessage;
+    if (isAnime) {
+      emptyMessage = '애니 제목을 입력해서\n검색해보세요!';
+    } else if (isManga) {
+      emptyMessage = '만화/소설 제목을 입력해서\n검색해보세요!';
+    } else if (isWebtoon) {
+      emptyMessage = '웹툰 제목을 입력해서\n검색해보세요!';
+    } else {
+      emptyMessage = '게임 제목을 입력해서\n검색해보세요!';
+    }
+
+    String noResultMessage;
+    if (isGame) {
+      noResultMessage = '검색 결과가 없어요.\n영어 제목으로 검색해보세요!';
+    } else if (isWebtoon) {
+      noResultMessage = '검색 결과가 없어요.\n정확한 제목으로 검색해보세요!';
+    } else {
+      noResultMessage = '검색 결과가 없어요.\n영어 또는 일본어 제목으로\n검색해보세요!';
+    }
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: DuckTextField(
-            hint: isAnime ? '애니 제목으로 검색' : '게임 제목으로 검색',
+            hint: hintText,
             controller: _searchController,
             prefix: const Icon(PhosphorIconsBold.magnifyingGlass, size: 20),
             onChanged: (value) {
@@ -324,34 +532,66 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
             },
           ),
         ),
+        // 만화 검색 시 한국 웹툰 안내
+        if (isManga && _searchResults.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: DuckColors.webtoonLight.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(PhosphorIconsBold.info, size: 16, color: DuckColors.webtoon),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '한국 웹툰은 웹툰 탭에서 검색하세요',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: DuckColors.webtoon,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         Expanded(
-          child: !isAnime && !igdbConfigured
+          child: isGame && !igdbConfigured
               ? const DuckEmptyState(
                   message:
                       'IGDB API 설정이 필요해요.\nigdb_config.dart에 Twitch 자격증명을 입력해주세요.',
                   icon: PhosphorIconsBold.gear,
                 )
+              : isWebtoon && !webtoonConfigured
+              ? _webtoonNotConfigured()
               : _isSearching
                   ? const Center(child: CircularProgressIndicator())
                   : _searchController.text.trim().isEmpty
                       ? DuckEmptyState(
-                          message: isAnime
-                              ? '애니 제목을 입력해서\n검색해보세요!'
-                              : '게임 제목을 입력해서\n검색해보세요!',
+                          message: emptyMessage,
                           icon: PhosphorIconsBold.magnifyingGlass,
                         )
                       : _searchResults.isEmpty
                           ? DuckEmptyState(
-                              message: isAnime
-                                  ? '검색 결과가 없어요.\n영어 또는 일본어 제목으로\n검색해보세요!'
-                                  : '검색 결과가 없어요.\n영어 제목으로 검색해보세요!',
+                              message: noResultMessage,
                               icon: PhosphorIconsBold.magnifyingGlass,
                             )
-                          : isAnime
-                              ? _buildAnimeList(
-                                  _searchResults.cast<AnilistMedia>())
-                              : _buildGameList(
-                                  _searchResults.cast<IgdbGame>()),
+                          : isGame
+                              ? _buildGameList(
+                                  _searchResults.cast<IgdbGame>())
+                              : isWebtoon
+                                  ? _buildWebtoonList(
+                                      _searchResults.cast<WebtoonData>())
+                                  : _buildAnimeList(
+                                      _searchResults.cast<AnilistMedia>(),
+                                      onFollow: isManga ? _followManga : _followAnime,
+                                      workType: isManga ? 'manga' : 'anime',
+                                    ),
         ),
       ],
     );
@@ -375,7 +615,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
           itemCount: works.length,
           itemBuilder: (context, index) {
             final work = works[index];
-            final isAnime = work.workType == 'anime';
+            final workType = work.workType;
             return DuckCard(
               onTap: () => Navigator.push(
                 context,
@@ -392,11 +632,11 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
                         width: 40,
                         height: 52,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _typeIcon(isAnime),
+                        errorWidget: (_, __, ___) => _typeIcon(workType),
                       ),
                     )
                   else
-                    _typeIcon(isAnime),
+                    _typeIcon(workType),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -406,7 +646,14 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
                             style: Theme.of(context).textTheme.titleSmall,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
-                        Text(isAnime ? '애니메이션' : '게임',
+                        Text(
+                            workType == 'anime'
+                                ? '애니메이션'
+                                : workType == 'manga'
+                                    ? '만화/소설'
+                                    : workType == 'webtoon'
+                                        ? '웹툰'
+                                        : '게임',
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
@@ -435,7 +682,8 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
 
   // ── Shared list builders ──
 
-  Widget _buildAnimeList(List<AnilistMedia> list) {
+  Widget _buildAnimeList(List<AnilistMedia> list, {Future<void> Function(AnilistMedia)? onFollow, String workType = 'anime'}) {
+    final followFn = onFollow ?? _followAnime;
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
       itemCount: list.length,
@@ -444,7 +692,23 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         return _AnimeCard(
           media: media,
           isFollowing: _followingId == media.id,
-          onTap: () => _followAnime(media),
+          onTap: () => followFn(media),
+          workType: workType,
+        );
+      },
+    );
+  }
+
+  Widget _buildWebtoonList(List<WebtoonData> list) {
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      itemCount: list.length,
+      itemBuilder: (context, index) {
+        final webtoon = list[index];
+        return _WebtoonCard(
+          webtoon: webtoon,
+          isFollowing: _followingWebtoonId == webtoon.id,
+          onTap: () => _followWebtoon(webtoon),
         );
       },
     );
@@ -465,21 +729,21 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
     );
   }
 
-  Widget _typeIcon(bool isAnime) {
+  Widget _typeIcon(String workType) {
+    final (bgColor, iconData, iconColor) = switch (workType) {
+      'anime' => (DuckColors.subLight, PhosphorIconsBold.television, DuckColors.sub),
+      'manga' => (DuckColors.primaryLight, PhosphorIconsBold.bookOpen, DuckColors.primary),
+      'webtoon' => (DuckColors.webtoonLight, PhosphorIconsBold.bookOpen, DuckColors.webtoon),
+      _ => (DuckColors.accentLight, PhosphorIconsBold.gameController, DuckColors.accent),
+    };
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: isAnime ? DuckColors.subLight : DuckColors.accentLight,
+        color: bgColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        isAnime
-            ? PhosphorIconsBold.television
-            : PhosphorIconsBold.gameController,
-        size: 20,
-        color: isAnime ? DuckColors.sub : DuckColors.accent,
-      ),
+      child: Icon(iconData, size: 20, color: iconColor),
     );
   }
 }
@@ -538,6 +802,71 @@ class _AnimeAiringTab extends ConsumerWidget {
                 media: list[i],
                 isFollowing: followingId == list[i].id,
                 onTap: () => onFollow(list[i]),
+              ),
+            ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const DuckEmptyState(
+          message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
+    );
+  }
+}
+
+// ══════════════════════════════════════════
+// Manga tabs
+// ══════════════════════════════════════════
+
+class _MangaTrendingTab extends ConsumerWidget {
+  final Future<void> Function(AnilistMedia) onFollow;
+  final int? followingId;
+  const _MangaTrendingTab({required this.onFollow, this.followingId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trending = ref.watch(trendingMangaProvider);
+    return trending.when(
+      data: (list) => list.isEmpty
+          ? const DuckEmptyState(
+              message: '트렌딩 데이터를 불러올 수 없어요.',
+              icon: PhosphorIconsBold.trendUp)
+          : ListView.builder(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              itemCount: list.length,
+              itemBuilder: (_, i) => _AnimeCard(
+                media: list[i],
+                isFollowing: followingId == list[i].id,
+                onTap: () => onFollow(list[i]),
+                rank: i + 1,
+                workType: 'manga',
+              ),
+            ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const DuckEmptyState(
+          message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
+    );
+  }
+}
+
+class _MangaPublishingTab extends ConsumerWidget {
+  final Future<void> Function(AnilistMedia) onFollow;
+  final int? followingId;
+  const _MangaPublishingTab({required this.onFollow, this.followingId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final publishing = ref.watch(publishingMangaProvider);
+    return publishing.when(
+      data: (list) => list.isEmpty
+          ? const DuckEmptyState(
+              message: '현재 연재 중인 만화가 없어요.',
+              icon: PhosphorIconsBold.bookOpen)
+          : ListView.builder(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              itemCount: list.length,
+              itemBuilder: (_, i) => _AnimeCard(
+                media: list[i],
+                isFollowing: followingId == list[i].id,
+                onTap: () => onFollow(list[i]),
+                workType: 'manga',
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -616,6 +945,338 @@ class _GameUpcomingTab extends ConsumerWidget {
   }
 }
 
+// ══════════════════════════════════════════
+// Webtoon tabs
+// ══════════════════════════════════════════
+
+class _WebtoonTrendingTab extends ConsumerWidget {
+  final Future<void> Function(WebtoonData) onFollow;
+  final String? followingWebtoonId;
+  const _WebtoonTrendingTab({required this.onFollow, this.followingWebtoonId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = ref.read(webtoonServiceProvider);
+    if (!service.isConfigured) return _webtoonNotConfigured();
+
+    final trending = ref.watch(trendingWebtoonProvider);
+    return trending.when(
+      data: (list) => list.isEmpty
+          ? const DuckEmptyState(
+              message: '오늘 업데이트된 웹툰이 없어요.',
+              icon: PhosphorIconsBold.bookOpen)
+          : ListView.builder(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              itemCount: list.length,
+              itemBuilder: (_, i) => _WebtoonCard(
+                webtoon: list[i],
+                isFollowing: followingWebtoonId == list[i].id,
+                onTap: () => onFollow(list[i]),
+                rank: i + 1,
+              ),
+            ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const DuckEmptyState(
+          message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
+    );
+  }
+}
+
+class _WebtoonWeekdayTab extends ConsumerStatefulWidget {
+  final Future<void> Function(WebtoonData) onFollow;
+  final String? followingWebtoonId;
+  const _WebtoonWeekdayTab({required this.onFollow, this.followingWebtoonId});
+
+  @override
+  ConsumerState<_WebtoonWeekdayTab> createState() =>
+      _WebtoonWeekdayTabState();
+}
+
+class _WebtoonWeekdayTabState extends ConsumerState<_WebtoonWeekdayTab> {
+  static const _days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const _dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+  late String _selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    // 오늘 요일로 초기 선택
+    final today = DateTime.now().weekday; // 1=Mon, 7=Sun
+    _selectedDay = _days[today - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = ref.read(webtoonServiceProvider);
+    if (!service.isConfigured) return _webtoonNotConfigured();
+
+    final webtoons = ref.watch(weekdayWebtoonProvider(_selectedDay));
+
+    return Column(
+      children: [
+        // 요일 선택 칩
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: List.generate(_days.length, (i) {
+              final selected = _selectedDay == _days[i];
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedDay = _days[i]),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? DuckColors.webtoon
+                          : DuckColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _dayLabels[i],
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected
+                              ? Colors.white
+                              : DuckColors.textSub,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        // 웹툰 리스트
+        Expanded(
+          child: webtoons.when(
+            data: (list) => list.isEmpty
+                ? const DuckEmptyState(
+                    message: '해당 요일에 연재 중인 웹툰이 없어요.',
+                    icon: PhosphorIconsBold.bookOpen)
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 16),
+                    itemCount: list.length,
+                    itemBuilder: (_, i) => _WebtoonCard(
+                      webtoon: list[i],
+                      isFollowing:
+                          widget.followingWebtoonId == list[i].id,
+                      onTap: () => widget.onFollow(list[i]),
+                    ),
+                  ),
+            loading: () =>
+                const Center(child: CircularProgressIndicator()),
+            error: (_, __) => const DuckEmptyState(
+                message: '네트워크를 확인해주세요.',
+                icon: PhosphorIconsBold.wifiSlash),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════
+// 웹툰 카드
+// ══════════════════════════════════════════
+
+class _WebtoonCard extends StatelessWidget {
+  final WebtoonData webtoon;
+  final bool isFollowing;
+  final VoidCallback onTap;
+  final int? rank;
+
+  const _WebtoonCard({
+    required this.webtoon,
+    required this.isFollowing,
+    required this.onTap,
+    this.rank,
+  });
+
+  bool get _canFollow => !webtoon.isEnd;
+
+  void _openDetail(BuildContext context) {
+    final previewWork = FollowedWork(
+      id: '',
+      userId: '',
+      workType: 'webtoon',
+      externalId: webtoon.id,
+      title: webtoon.displayTitle,
+      coverUrl: webtoon.thumbnailUrl,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkDetailScreen(
+          work: previewWork,
+          webtoonData: webtoon,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DuckCard(
+      onTap: () => _openDetail(context),
+      child: Row(
+        children: [
+          if (rank != null)
+            SizedBox(
+              width: 28,
+              child: Text('$rank',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color:
+                        rank! <= 3 ? DuckColors.webtoon : DuckColors.textSub,
+                  )),
+            ),
+          // 웹툰 썸네일 (네이버/카카오 CDN 대응)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: webtoon.thumbnailUrl != null
+                ? Image.network(
+                    webtoon.thumbnailUrl!,
+                    width: 48,
+                    height: 64,
+                    fit: BoxFit.cover,
+                    headers: const {'Referer': ''},
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 48,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: DuckColors.webtoonLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(PhosphorIconsBold.bookOpen,
+                          size: 20, color: DuckColors.webtoon),
+                    ),
+                  )
+                : Container(
+                    width: 48,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: DuckColors.webtoonLight,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(PhosphorIconsBold.bookOpen,
+                        size: 20, color: DuckColors.webtoon),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(webtoon.displayTitle,
+                    style: Theme.of(context).textTheme.titleSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                if (webtoon.authors.isNotEmpty)
+                  Text(webtoon.authors.join(', '),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: DuckColors.textSub),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    // 플랫폼 배지
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: DuckColors.webtoonLight.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        webtoon.providerKorean,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: DuckColors.webtoon,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // 연재요일 배지
+                    if (webtoon.updateDays.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: DuckColors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          webtoon.updateDaysKorean,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: DuckColors.textSub,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    if (webtoon.isEnd) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: DuckColors.textSub.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          '완결',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: DuckColors.textSub,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (webtoon.isUpdated) ...[
+                      const SizedBox(width: 6),
+                      Icon(PhosphorIconsBold.arrowClockwise,
+                          size: 12, color: DuckColors.success),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // 팔로우 버튼 — 플러스 아이콘만 탭 가능
+          GestureDetector(
+            onTap: isFollowing || !_canFollow ? null : onTap,
+            child: _FollowButton(
+              isFollowing: isFollowing,
+              color: DuckColors.webtoon,
+              enabled: _canFollow,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _webtoonNotConfigured() {
+  return const DuckEmptyState(
+    message: '웹툰 API 설정이 필요해요.\nkorea-webtoon-api를 배포한 뒤\nconstants.dart에 URL을 입력해주세요.',
+    icon: PhosphorIconsBold.gear,
+  );
+}
+
 Widget _igdbNotConfigured() {
   return const DuckEmptyState(
     message: 'IGDB API 설정이 필요해요.\nigdb_config.dart에\nTwitch 자격증명을 입력해주세요.',
@@ -632,21 +1293,43 @@ class _AnimeCard extends StatelessWidget {
   final bool isFollowing;
   final VoidCallback onTap;
   final int? rank;
+  final String workType;
 
   const _AnimeCard({
     required this.media,
     required this.isFollowing,
     required this.onTap,
     this.rank,
+    this.workType = 'anime',
   });
 
   bool get _canFollow =>
       media.status != 'FINISHED' && media.status != 'CANCELLED';
 
+  void _openDetail(BuildContext context) {
+    final previewWork = FollowedWork(
+      id: '',
+      userId: '',
+      workType: workType,
+      externalId: media.id.toString(),
+      title: media.displayTitle,
+      coverUrl: media.coverImageUrl,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkDetailScreen(
+          work: previewWork,
+          animeData: media,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DuckCard(
-      onTap: isFollowing || !_canFollow ? null : onTap,
+      onTap: () => _openDetail(context),
       child: Row(
         children: [
           if (rank != null)
@@ -694,10 +1377,13 @@ class _AnimeCard extends StatelessWidget {
               ],
             ),
           ),
-          _FollowButton(
-            isFollowing: isFollowing,
-            color: DuckColors.sub,
-            enabled: _canFollow,
+          GestureDetector(
+            onTap: isFollowing || !_canFollow ? null : onTap,
+            child: _FollowButton(
+              isFollowing: isFollowing,
+              color: DuckColors.sub,
+              enabled: _canFollow,
+            ),
           ),
         ],
       ),
@@ -733,10 +1419,30 @@ class _GameCard extends StatelessWidget {
     return !releaseDay.isBefore(DateTime(today.year, today.month, today.day));
   }
 
+  void _openDetail(BuildContext context) {
+    final previewWork = FollowedWork(
+      id: '',
+      userId: '',
+      workType: 'game',
+      externalId: game.id.toString(),
+      title: game.name,
+      coverUrl: game.coverUrl,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkDetailScreen(
+          work: previewWork,
+          gameData: game,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DuckCard(
-      onTap: isFollowing || !_canFollow ? null : onTap,
+      onTap: () => _openDetail(context),
       child: Row(
         children: [
           if (rank != null)
@@ -794,10 +1500,13 @@ class _GameCard extends StatelessWidget {
               ],
             ),
           ),
-          _FollowButton(
-            isFollowing: isFollowing,
-            color: DuckColors.accent,
-            enabled: _canFollow,
+          GestureDetector(
+            onTap: isFollowing || !_canFollow ? null : onTap,
+            child: _FollowButton(
+              isFollowing: isFollowing,
+              color: DuckColors.accent,
+              enabled: _canFollow,
+            ),
           ),
         ],
       ),
@@ -893,10 +1602,11 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      'RELEASING' => ('방영 중', DuckColors.success),
+      'RELEASING' => ('방영/연재 중', DuckColors.success),
       'FINISHED' => ('완결', DuckColors.textSub),
-      'NOT_YET_RELEASED' => ('방영 예정', DuckColors.primary),
+      'NOT_YET_RELEASED' => ('출시 예정', DuckColors.primary),
       'CANCELLED' => ('취소', DuckColors.error),
+      'HIATUS' => ('휴재', DuckColors.textSub),
       _ => ('', DuckColors.textSub),
     };
     if (label.isEmpty) return const SizedBox.shrink();

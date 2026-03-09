@@ -20,6 +20,10 @@ class DuckColors {
   static const Color sub = Color(0xFFB8E6C8);
   static const Color subLight = Color(0xFFD4F0DF);
 
+  // Webtoon - 연보라
+  static const Color webtoon = Color(0xFFA78BFA);
+  static const Color webtoonLight = Color(0xFFD0C4FF);
+
   // Outline & Text
   static const Color outline = Color(0xFF2D2D2D);
   static const Color text = Color(0xFF2D2D2D);

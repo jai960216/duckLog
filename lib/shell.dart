@@ -8,14 +8,12 @@ import 'features/calendar/screens/calendar_screen.dart';
 import 'features/catalog/screens/catalog_list_screen.dart';
 import 'features/social/screens/my_page_screen.dart';
 import 'features/catalog/screens/anilist_character_screen.dart';
-import 'features/catalog/screens/ocr_import_screen.dart';
 import 'features/catalog/screens/pokemon_tcg_search_screen.dart';
 import 'features/catalog/screens/direct_catalog_create_screen.dart';
 import 'features/catalog/services/catalog_service.dart';
 import 'features/goods/screens/goods_input_screen.dart';
 import 'features/goods/screens/receipt_scan_screen.dart';
 import 'features/goods/services/goods_service.dart';
-import 'features/goods/services/receipt_service.dart';
 import 'features/social/screens/notification_settings_screen.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -133,23 +131,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                   _navigateToCatalogScreen(const AnilistCharacterScreen());
                 },
               ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: DuckColors.subLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(PhosphorIconsBold.scan,
-                      size: 20, color: DuckColors.outline),
-                ),
-                title: const Text('이미지에서 추출'),
-                subtitle: const Text('체크리스트 이미지에서 아이템을 추출해요'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _navigateToCatalogScreen(const OcrImportScreen());
-                },
-              ),
             ],
           ),
         ),
@@ -212,12 +193,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ),
                 title: const Text('영수증 보관'),
                 subtitle: const Text('영수증을 찍어서 보관해요'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
-                  Navigator.of(context).push(
+                  await Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (_) => const ReceiptScanScreen()),
-                  ).then((_) => ref.invalidate(receiptListProvider));
+                      builder: (_) => const ReceiptScanScreen(),
+                    ),
+                  );
                 },
               ),
             ],

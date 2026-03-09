@@ -47,14 +47,14 @@ final workEventsProvider =
   },
 );
 
-/// 캘린더 표시용 일정 (애니 방영 + 게임 출시)
+/// 캘린더 표시용 일정 (애니 방영 + 만화 + 웹툰 + 게임 출시)
 class AiringEntry {
   final String title;
-  final String workType; // anime or game
+  final String workType; // anime, manga, webtoon, or game
   final String externalId;
   final int? episode;
   final DateTime airingDate;
-  final String eventType; // airing or release
+  final String eventType; // airing, update, or release
 
   const AiringEntry({
     required this.title,
@@ -67,11 +67,14 @@ class AiringEntry {
 
   String get displayTitle {
     if (eventType == 'airing' && episode != null) return '$title $episode화';
+    if (eventType == 'update') return '$title 업데이트';
     if (eventType == 'release') return '$title 출시';
     return title;
   }
 
   bool get isAnime => workType == 'anime';
+  bool get isManga => workType == 'manga';
+  bool get isWebtoon => workType == 'webtoon';
   bool get isGame => workType == 'game';
 }
 
@@ -96,9 +99,10 @@ final monthAiringScheduleProvider =
     final calendarService = ref.read(calendarServiceProvider);
     final entries = <AiringEntry>[];
 
-    // 애니와 게임 작품 분류
+    // 작품 분류
     final animeWorks = followedWorks.where((w) => w.workType == 'anime').toList();
     final gameWorks = followedWorks.where((w) => w.workType == 'game').toList();
+    final webtoonWorks = followedWorks.where((w) => w.workType == 'webtoon').toList();
 
     // ── 애니: AniList 방영 스케줄 (병렬 호출) ──
     final animeFutures = animeWorks.map((work) async {
@@ -125,8 +129,9 @@ final monthAiringScheduleProvider =
       }
     });
 
-    // ── 게임: Supabase calendar_events (병렬 호출) ──
-    final gameFutures = gameWorks.map((work) async {
+    // ── 게임/웹툰: Supabase calendar_events (병렬 호출) ──
+    final eventBasedWorks = [...gameWorks, ...webtoonWorks];
+    final eventFutures = eventBasedWorks.map((work) async {
       try {
         final events =
             await calendarService.getEventsForWork(work.externalId);
@@ -140,7 +145,7 @@ final monthAiringScheduleProvider =
                   workType: work.workType,
                   externalId: work.externalId,
                   airingDate: e.eventDate,
-                  eventType: 'release',
+                  eventType: e.eventType,
                 ))
             .toList();
       } catch (_) {
@@ -148,7 +153,7 @@ final monthAiringScheduleProvider =
       }
     });
 
-    final results = await Future.wait([...animeFutures, ...gameFutures]);
+    final results = await Future.wait([...animeFutures, ...eventFutures]);
     for (final list in results) {
       entries.addAll(list);
     }

@@ -40,5 +40,6 @@ class CalendarEvent {
   }
 
   bool get isAnime => workType == 'anime';
+  bool get isWebtoon => workType == 'webtoon';
   bool get isGame => workType == 'game';
 }

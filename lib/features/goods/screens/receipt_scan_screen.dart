@@ -10,7 +10,7 @@ import '../../../shared/models/receipt.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../services/receipt_service.dart';
 
-enum _ScanState { idle, scanning, result }
+enum _ScanState { idle, result }
 
 class ReceiptScanScreen extends ConsumerStatefulWidget {
   const ReceiptScanScreen({super.key});
@@ -29,8 +29,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   final _totalAmountController = TextEditingController();
   final _memoController = TextEditingController();
   DateTime? _purchasedAt;
-  final List<_ExtractedItem> _items = [];
-
   // New metadata fields
   String? _purchaseChannel;
   String? _expenseType;
@@ -56,9 +54,9 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       setState(() {
         _photo = picked;
         _photoBytes = bytes;
-        _state = _ScanState.scanning;
+        _state = _ScanState.result;
+        _purchasedAt = DateTime.now();
       });
-      await _processReceipt();
     }
   }
 
@@ -74,25 +72,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       setState(() {
         _photo = picked;
         _photoBytes = bytes;
-        _state = _ScanState.scanning;
-      });
-      await _processReceipt();
-    }
-  }
-
-  Future<void> _processReceipt() async {
-    // TODO: Call Supabase Edge Function → Gemini Vision API
-    // For now, simulate with a delay
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      setState(() {
         _state = _ScanState.result;
-        // Simulated extracted data
-        _storeNameController.text = '';
-        _totalAmountController.text = '';
         _purchasedAt = DateTime.now();
-        _items.clear();
       });
     }
   }
@@ -114,27 +95,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         return;
       }
 
-      // Build extracted data from items
-      Map<String, dynamic>? extractedData;
-      if (_items.isNotEmpty) {
-        extractedData = {
-          'items': _items
-              .map((item) => {
-                    'name': item.name,
-                    'price': item.price,
-                    'quantity': item.quantity,
-                  })
-              .toList(),
-        };
-      }
-
       final amount =
           int.tryParse(_totalAmountController.text.replaceAll(',', ''));
 
       // Save as receipt (NOT goods)
       await service.createReceipt(
         photoUrl: photoUrl,
-        extractedData: extractedData,
         totalAmount: amount,
         storeName: _storeNameController.text.isNotEmpty
             ? _storeNameController.text
@@ -169,7 +135,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       ),
       body: switch (_state) {
         _ScanState.idle => _buildIdleState(),
-        _ScanState.scanning => _buildScanningState(),
         _ScanState.result => _buildResultState(),
       },
     );
@@ -197,7 +162,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              '영수증을 촬영하면\n자동으로 인식해요!',
+              '영수증 사진을 찍거나\n갤러리에서 선택해요!',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: DuckColors.textSub,
@@ -224,38 +189,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildScanningState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Duck searching animation placeholder
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: DuckColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: DuckColors.outline, width: 3),
-            ),
-            child: const Center(
-              child: Text('🔍🐥', style: TextStyle(fontSize: 48)),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const CircularProgressIndicator(color: DuckColors.primary),
-          const SizedBox(height: 16),
-          Text(
-            '영수증을 인식하고 있어요...',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: DuckColors.textSub,
-                ),
-          ),
-        ],
       ),
     );
   }
@@ -310,13 +243,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         const SizedBox(height: 20),
 
         Text(
-          '인식 결과를 확인해주세요',
+          '영수증 정보를 입력해주세요',
           style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '잘못된 정보가 있으면 수정할 수 있어요.',
-          style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 20),
 
@@ -383,29 +311,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Items
-        if (_items.isNotEmpty) ...[
-          Text('품목', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          ..._items.asMap().entries.map((entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: DuckCard(
-                  margin: EdgeInsets.zero,
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(entry.value.name)),
-                      Text(
-                        entry.value.price != null
-                            ? '${entry.value.price}원'
-                            : '-',
-                      ),
-                    ],
-                  ),
-                ),
-              )),
-          const SizedBox(height: 8),
-        ],
-
         const SizedBox(height: 24),
 
         SizedBox(
@@ -426,7 +331,6 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                 _photo = null;
                 _photoBytes = null;
                 _state = _ScanState.idle;
-                _items.clear();
                 _purchaseChannel = null;
                 _expenseType = null;
                 _category = null;
@@ -438,12 +342,4 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       ],
     );
   }
-}
-
-class _ExtractedItem {
-  final String name;
-  final int? price;
-  final int? quantity;
-
-  _ExtractedItem({required this.name, this.price, this.quantity});
 }
