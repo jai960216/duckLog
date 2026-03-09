@@ -27,6 +27,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
   String _visibility = 'private';
   String? _coverUrl;
   XFile? _newCoverPhoto;
+  double _coverFitY = 0.5;
   bool _isLoading = false;
 
   bool get _isEditing => widget.existingCatalog != null;
@@ -42,6 +43,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
       _selectedCategory = c.category;
       _visibility = c.visibility;
       _coverUrl = c.coverUrl;
+      _coverFitY = c.coverFitY;
     }
   }
 
@@ -90,6 +92,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
               ? null
               : _workTagController.text.trim(),
           'cover_url': coverUrl,
+          'cover_fit_y': _coverFitY,
           'visibility': _visibility,
         });
       } else {
@@ -103,6 +106,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
               ? null
               : _workTagController.text.trim(),
           coverUrl: coverUrl,
+          coverFitY: _coverFitY,
           visibility: _visibility,
         );
       }
@@ -188,42 +192,161 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
   }
 
   Widget _buildCoverSection() {
+    final hasCover = _newCoverPhoto != null || _coverUrl != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('커버 이미지', style: Theme.of(context).textTheme.titleSmall),
+        Row(
+          children: [
+            Text('커버 이미지', style: Theme.of(context).textTheme.titleSmall),
+            const Spacer(),
+            if (hasCover)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _coverUrl = null;
+                    _newCoverPhoto = null;
+                    _coverFitY = 0.5;
+                  });
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(PhosphorIconsBold.x,
+                      size: 18, color: DuckColors.textSub),
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _pickCoverImage,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: _newCoverPhoto != null
-                ? FutureBuilder<List<int>>(
-                    future: _newCoverPhoto!.readAsBytes(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return Image.memory(
-                          snapshot.data! as dynamic,
-                          height: 160,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        );
-                      }
-                      return _coverPlaceholder();
-                    },
-                  )
-                : _coverUrl != null
-                    ? Image.network(
-                        _coverUrl!,
-                        height: 160,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _coverPlaceholder(),
-                      )
-                    : _coverPlaceholder(),
+        if (_newCoverPhoto != null)
+          FutureBuilder<List<int>>(
+            future: _newCoverPhoto!.readAsBytes(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                return _buildCropGuideOverlay(
+                  Image.memory(
+                    snapshot.data! as dynamic,
+                    fit: BoxFit.cover,
+                    alignment: Alignment(0, _coverFitY * 2 - 1),
+                    width: double.infinity,
+                    height: 280,
+                  ),
+                );
+              }
+              return GestureDetector(
+                onTap: _pickCoverImage,
+                child: _coverPlaceholder(),
+              );
+            },
+          )
+        else if (_coverUrl != null)
+          _buildCropGuideOverlay(
+            Image.network(
+              _coverUrl!,
+              fit: BoxFit.cover,
+              alignment: Alignment(0, _coverFitY * 2 - 1),
+              width: double.infinity,
+              height: 280,
+              errorBuilder: (_, __, ___) =>
+                  _coverPlaceholder(),
+            ),
+          )
+        else
+          GestureDetector(
+            onTap: _pickCoverImage,
+            child: _coverPlaceholder(),
+          ),
+        if (hasCover) ...[
+          const SizedBox(height: 6),
+          const Center(
+            child: Text(
+              '드래그하여 커버 영역을 조정할 수 있어요',
+              style: TextStyle(fontSize: 12, color: DuckColors.textSub),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCropGuideOverlay(Widget imageWidget) {
+    return GestureDetector(
+      onTap: _pickCoverImage,
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          _coverFitY =
+              (_coverFitY - details.delta.dy / 280).clamp(0.0, 1.0);
+        });
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          height: 280,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              imageWidget,
+            // Top dark overlay
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 80,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.5),
+              ),
+            ),
+            // Bottom dark overlay
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 80,
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.5),
+              ),
+            ),
+            // Center cover area border + label
+            Positioned(
+              top: 80,
+              left: 0,
+              right: 0,
+              height: 120,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.symmetric(
+                    horizontal: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      '커버에 표시되는 영역',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 

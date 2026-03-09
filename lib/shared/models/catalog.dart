@@ -6,6 +6,7 @@ class Catalog {
   final String? category;
   final String? workTag;
   final String? coverUrl;
+  final double coverFitY;
   final String visibility;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -22,6 +23,7 @@ class Catalog {
     this.category,
     this.workTag,
     this.coverUrl,
+    this.coverFitY = 0.5,
     this.visibility = 'private',
     required this.createdAt,
     required this.updatedAt,
@@ -43,6 +45,7 @@ class Catalog {
       category: json['category'] as String?,
       workTag: json['work_tag'] as String?,
       coverUrl: json['cover_url'] as String?,
+      coverFitY: (json['cover_fit_y'] as num?)?.toDouble() ?? 0.5,
       visibility: json['visibility'] as String? ?? 'private',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -57,6 +60,7 @@ class Catalog {
       'category': category,
       'work_tag': workTag,
       'cover_url': coverUrl,
+      'cover_fit_y': coverFitY,
       'visibility': visibility,
     };
   }
@@ -67,6 +71,7 @@ class Catalog {
     String? category,
     String? workTag,
     String? coverUrl,
+    double? coverFitY,
     String? visibility,
     int? totalItems,
     int? collectedItems,
@@ -79,6 +84,7 @@ class Catalog {
       category: category ?? this.category,
       workTag: workTag ?? this.workTag,
       coverUrl: coverUrl ?? this.coverUrl,
+      coverFitY: coverFitY ?? this.coverFitY,
       visibility: visibility ?? this.visibility,
       createdAt: createdAt,
       updatedAt: updatedAt,

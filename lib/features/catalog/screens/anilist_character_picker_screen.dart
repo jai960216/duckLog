@@ -1,40 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
 import '../services/anilist_figure_service.dart';
 import '../../calendar/services/igdb_service.dart';
-import '../services/catalog_service.dart';
 import '../widgets/catalog_setup_form.dart';
-import 'catalog_detail_screen.dart';
 
-class AnilistCharacterScreen extends ConsumerStatefulWidget {
-  const AnilistCharacterScreen({super.key});
+/// 작품/게임 → 캐릭터 선택 피커
+/// Navigator.pop으로 List<CharacterSetupData>를 반환
+class AnilistCharacterPickerScreen extends ConsumerStatefulWidget {
+  const AnilistCharacterPickerScreen({super.key});
 
   @override
-  ConsumerState<AnilistCharacterScreen> createState() =>
-      _AnilistCharacterScreenState();
+  ConsumerState<AnilistCharacterPickerScreen> createState() =>
+      _AnilistCharacterPickerScreenState();
 }
 
-class _AnilistCharacterScreenState
-    extends ConsumerState<AnilistCharacterScreen> {
+class _AnilistCharacterPickerScreenState
+    extends ConsumerState<AnilistCharacterPickerScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   // 'ANIME', 'MANGA', 'GAME'
   String _sourceType = 'ANIME';
 
-  // Step 0: search, Step 1: character select, Step 2: setup
+  // Step 0: work/game search, Step 1: character select
   int _step = 0;
+  // AniList
   AnilistWork? _selectedWork;
+  // IGDB
   IgdbGame? _selectedGame;
-  final Set<int> _selectedIds = {};
-  List<CharacterSetupData> _selectedSetupChars = [];
 
-  // For setup form context
-  String? _workTitle;
-  String? _coverUrl;
+  final Set<int> _selectedIds = {};
 
   @override
   void dispose() {
@@ -68,9 +65,7 @@ class _AnilistCharacterScreenState
   }
 
   void _goBack() {
-    if (_step == 2) {
-      setState(() => _step = 1);
-    } else if (_step == 1) {
+    if (_step == 1) {
       setState(() {
         _selectedWork = null;
         _selectedGame = null;
@@ -92,125 +87,63 @@ class _AnilistCharacterScreenState
     });
   }
 
-  void _selectAllGeneric(int totalCount, Iterable<int> allIds) {
+  void _selectAllAnilist(List<AnilistCharacter> chars) {
     setState(() {
-      if (_selectedIds.length == totalCount) {
+      if (_selectedIds.length == chars.length) {
         _selectedIds.clear();
       } else {
-        _selectedIds.addAll(allIds);
+        _selectedIds.addAll(chars.map((c) => c.id));
       }
     });
   }
 
-  void _goToSetupAnilist(List<AnilistCharacter> allChars) {
-    final selected =
-        allChars.where((c) => _selectedIds.contains(c.id)).toList();
-    if (selected.isEmpty) return;
+  void _selectAllIgdb(List<IgdbCharacter> chars) {
     setState(() {
-      _selectedSetupChars = selected
-          .map((ch) => CharacterSetupData(
-                name: ch.displayName,
-                photoUrl: ch.imageUrl,
-                externalId: ch.id.toString(),
-                items: [ItemSetupData(name: '아이템')],
-              ))
-          .toList();
-      _workTitle = _selectedWork!.displayTitle;
-      _coverUrl = _selectedWork!.coverImageUrl;
-      _step = 2;
-    });
-  }
-
-  void _goToSetupIgdb(List<IgdbCharacter> allChars) {
-    final selected =
-        allChars.where((c) => _selectedIds.contains(c.id)).toList();
-    if (selected.isEmpty) return;
-    setState(() {
-      _selectedSetupChars = selected
-          .map((ch) => CharacterSetupData(
-                name: ch.name,
-                photoUrl: ch.imageUrl,
-                externalId: 'igdb_${ch.id}',
-                items: [ItemSetupData(name: '아이템')],
-              ))
-          .toList();
-      _workTitle = _selectedGame!.name;
-      _coverUrl = _selectedGame!.coverUrl;
-      _step = 2;
-    });
-  }
-
-  Future<void> _createCatalog({
-    required String name,
-    required String? category,
-    required String? workTag,
-    required String visibility,
-    required List<CharacterSetupData> characters,
-    required String? coverUrl,
-    required XFile? newCoverPhoto,
-    required double coverFitY,
-  }) async {
-    final service = ref.read(catalogServiceProvider);
-
-    String? finalCoverUrl = coverUrl;
-    if (newCoverPhoto != null) {
-      final bytes = await newCoverPhoto.readAsBytes();
-      finalCoverUrl =
-          await service.uploadPhoto(bytes, newCoverPhoto.name);
-    }
-
-    // Upload character photos if picked from gallery
-    final charData = <Map<String, dynamic>>[];
-    for (final c in characters) {
-      String? photoUrl = c.photoUrl;
-      if (c.newPhotoFile != null) {
-        final bytes = await c.newPhotoFile!.readAsBytes();
-        photoUrl = await service.uploadPhoto(bytes, c.newPhotoFile!.name);
+      if (_selectedIds.length == chars.length) {
+        _selectedIds.clear();
+      } else {
+        _selectedIds.addAll(chars.map((c) => c.id));
       }
-      charData.add({
-        'name': c.name,
-        'photo_url': photoUrl,
-        'external_id': c.externalId,
-        'items': c.items
-            .where((i) => i.name.trim().isNotEmpty)
-            .map((i) => {'name': i.name})
-            .toList(),
-      });
-    }
+    });
+  }
 
-    final catalog = await service.createCatalogWithCharacters(
-      name: name,
-      category: category,
-      workTag: workTag ?? _workTitle,
-      coverUrl: finalCoverUrl,
-      coverFitY: coverFitY,
-      visibility: visibility,
-      characters: charData,
-    );
+  void _confirmAnilist(List<AnilistCharacter> allChars) {
+    final selected =
+        allChars.where((c) => _selectedIds.contains(c.id)).toList();
+    if (selected.isEmpty) return;
 
-    if (mounted) {
-      ref.invalidate(myCatalogsProvider);
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => CatalogDetailScreen(catalogId: catalog.id),
-        ),
-      );
-    }
+    final result = selected
+        .map((ch) => CharacterSetupData(
+              name: ch.displayName,
+              photoUrl: ch.imageUrl,
+              externalId: ch.id.toString(),
+              items: [ItemSetupData(name: '아이템')],
+            ))
+        .toList();
+    Navigator.of(context).pop(result);
+  }
+
+  void _confirmIgdb(List<IgdbCharacter> allChars) {
+    final selected =
+        allChars.where((c) => _selectedIds.contains(c.id)).toList();
+    if (selected.isEmpty) return;
+
+    final result = selected
+        .map((ch) => CharacterSetupData(
+              name: ch.name,
+              photoUrl: ch.imageUrl,
+              externalId: 'igdb_${ch.id}',
+              items: [ItemSetupData(name: '아이템')],
+            ))
+        .toList();
+    Navigator.of(context).pop(result);
   }
 
   String get _appBarTitle {
-    switch (_step) {
-      case 0:
-        return '작품 선택';
-      case 1:
-        if (_selectedWork != null) return _selectedWork!.displayTitle;
-        if (_selectedGame != null) return _selectedGame!.name;
-        return '캐릭터 선택';
-      case 2:
-        return '도감 설정';
-      default:
-        return '작품 선택';
-    }
+    if (_step == 0) return '작품 선택';
+    if (_selectedWork != null) return _selectedWork!.displayTitle;
+    if (_selectedGame != null) return _selectedGame!.name;
+    return '캐릭터 선택';
   }
 
   @override
@@ -223,22 +156,12 @@ class _AnilistCharacterScreenState
           onPressed: _goBack,
         ),
       ),
-      body: _buildBody(),
+      body: _step == 0
+          ? _buildSearch()
+          : _selectedGame != null
+              ? _buildIgdbCharacterList()
+              : _buildAnilistCharacterList(),
     );
-  }
-
-  Widget _buildBody() {
-    switch (_step) {
-      case 0:
-        return _buildSearch();
-      case 1:
-        if (_selectedGame != null) return _buildIgdbCharacterList();
-        return _buildAnilistCharacterList();
-      case 2:
-        return _buildSetupForm();
-      default:
-        return _buildSearch();
-    }
   }
 
   // ── Step 0: Search ──
@@ -402,10 +325,10 @@ class _AnilistCharacterScreenState
                       fit: BoxFit.cover,
                       placeholder: (_, __) =>
                           Container(color: DuckColors.surface),
-                      errorWidget: (_, e, s) => _cardPlaceholder(
+                      errorWidget: (_, e, s) => _buildCardPlaceholder(
                           PhosphorIconsBold.filmSlate),
                     )
-                  : _cardPlaceholder(PhosphorIconsBold.filmSlate),
+                  : _buildCardPlaceholder(PhosphorIconsBold.filmSlate),
             ),
           ),
           const SizedBox(height: 6),
@@ -436,10 +359,11 @@ class _AnilistCharacterScreenState
                       fit: BoxFit.cover,
                       placeholder: (_, __) =>
                           Container(color: DuckColors.surface),
-                      errorWidget: (_, e, s) => _cardPlaceholder(
+                      errorWidget: (_, e, s) => _buildCardPlaceholder(
                           PhosphorIconsBold.gameController),
                     )
-                  : _cardPlaceholder(PhosphorIconsBold.gameController),
+                  : _buildCardPlaceholder(
+                      PhosphorIconsBold.gameController),
             ),
           ),
           const SizedBox(height: 6),
@@ -455,10 +379,12 @@ class _AnilistCharacterScreenState
     );
   }
 
-  Widget _cardPlaceholder(IconData icon) {
+  Widget _buildCardPlaceholder(IconData icon) {
     return Container(
       color: DuckColors.surface,
-      child: Center(child: Icon(icon, size: 24, color: DuckColors.textLight)),
+      child: Center(
+        child: Icon(icon, size: 24, color: DuckColors.textLight),
+      ),
     );
   }
 
@@ -500,13 +426,23 @@ class _AnilistCharacterScreenState
 
     return asyncChars.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => _charErrorWidget(e),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text('캐릭터를 불러올 수 없어요\n$e',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: DuckColors.textSub)),
+        ),
+      ),
       data: (chars) {
-        if (chars.isEmpty) return _charEmptyWidget(_skipToSetupAnilist);
+        if (chars.isEmpty) {
+          return _charEmptyWidget(() {
+            Navigator.of(context).pop(<CharacterSetupData>[]);
+          });
+        }
         return _buildSelectionList(
           count: chars.length,
-          onSelectAll: () => _selectAllGeneric(
-              chars.length, chars.map((c) => c.id)),
+          onSelectAll: () => _selectAllAnilist(chars),
           itemBuilder: (index) {
             final ch = chars[index];
             return _buildGenericTile(
@@ -520,8 +456,7 @@ class _AnilistCharacterScreenState
               isBadgeHighlighted: ch.role == 'MAIN',
             );
           },
-          onConfirm: () => _goToSetupAnilist(chars),
-          buttonLabel: '명 선택 — 다음',
+          onConfirm: () => _confirmAnilist(chars),
         );
       },
     );
@@ -535,13 +470,23 @@ class _AnilistCharacterScreenState
 
     return asyncChars.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => _charErrorWidget(e),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text('캐릭터를 불러올 수 없어요\n$e',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: DuckColors.textSub)),
+        ),
+      ),
       data: (chars) {
-        if (chars.isEmpty) return _charEmptyWidget(_skipToSetupIgdb);
+        if (chars.isEmpty) {
+          return _charEmptyWidget(() {
+            Navigator.of(context).pop(<CharacterSetupData>[]);
+          });
+        }
         return _buildSelectionList(
           count: chars.length,
-          onSelectAll: () => _selectAllGeneric(
-              chars.length, chars.map((c) => c.id)),
+          onSelectAll: () => _selectAllIgdb(chars),
           itemBuilder: (index) {
             final ch = chars[index];
             return _buildGenericTile(
@@ -550,39 +495,9 @@ class _AnilistCharacterScreenState
               imageUrl: ch.imageUrl,
             );
           },
-          onConfirm: () => _goToSetupIgdb(chars),
-          buttonLabel: '명 선택 — 다음',
+          onConfirm: () => _confirmIgdb(chars),
         );
       },
-    );
-  }
-
-  void _skipToSetupAnilist() {
-    setState(() {
-      _selectedSetupChars = [];
-      _workTitle = _selectedWork!.displayTitle;
-      _coverUrl = _selectedWork!.coverImageUrl;
-      _step = 2;
-    });
-  }
-
-  void _skipToSetupIgdb() {
-    setState(() {
-      _selectedSetupChars = [];
-      _workTitle = _selectedGame!.name;
-      _coverUrl = _selectedGame!.coverUrl;
-      _step = 2;
-    });
-  }
-
-  Widget _charErrorWidget(Object e) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text('캐릭터를 불러올 수 없어요\n$e',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: DuckColors.textSub)),
-      ),
     );
   }
 
@@ -600,14 +515,10 @@ class _AnilistCharacterScreenState
                 textAlign: TextAlign.center,
                 style: TextStyle(color: DuckColors.textSub)),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
+            OutlinedButton.icon(
               onPressed: onSkip,
-              icon: const Icon(PhosphorIconsBold.caretRight, size: 18),
-              label: const Text('캐릭터 없이 계속하기'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
-              ),
+              icon: const Icon(PhosphorIconsBold.caretLeft, size: 18),
+              label: const Text('돌아가기'),
             ),
           ],
         ),
@@ -622,7 +533,6 @@ class _AnilistCharacterScreenState
     required VoidCallback onSelectAll,
     required Widget Function(int index) itemBuilder,
     required VoidCallback onConfirm,
-    required String buttonLabel,
   }) {
     return Stack(
       children: [
@@ -633,9 +543,11 @@ class _AnilistCharacterScreenState
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  Text('$count명의 캐릭터',
-                      style: const TextStyle(
-                          fontSize: 13, color: DuckColors.textSub)),
+                  Text(
+                    '$count명의 캐릭터',
+                    style: const TextStyle(
+                        fontSize: 13, color: DuckColors.textSub),
+                  ),
                   const Spacer(),
                   TextButton(
                     onPressed: onSelectAll,
@@ -668,8 +580,8 @@ class _AnilistCharacterScreenState
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                icon: const Icon(PhosphorIconsBold.caretRight, size: 20),
-                label: Text('${_selectedIds.length}$buttonLabel'),
+                icon: const Icon(PhosphorIconsBold.check, size: 20),
+                label: Text('${_selectedIds.length}명 추가'),
               ),
             ),
           ),
@@ -703,6 +615,7 @@ class _AnilistCharacterScreenState
         ),
         child: Row(
           children: [
+            // Checkbox
             Container(
               width: 24,
               height: 24,
@@ -721,6 +634,7 @@ class _AnilistCharacterScreenState
                   : null,
             ),
             const SizedBox(width: 12),
+            // Image
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
@@ -746,6 +660,7 @@ class _AnilistCharacterScreenState
               ),
             ),
             const SizedBox(width: 12),
+            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,7 +668,9 @@ class _AnilistCharacterScreenState
                   Text(
                     name,
                     style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -789,8 +706,9 @@ class _AnilistCharacterScreenState
                             child: Text(
                               subtitle,
                               style: const TextStyle(
-                                  fontSize: 12,
-                                  color: DuckColors.textSub),
+                                fontSize: 12,
+                                color: DuckColors.textSub,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -805,22 +723,6 @@ class _AnilistCharacterScreenState
           ],
         ),
       ),
-    );
-  }
-
-  // ── Step 2: Setup form ──
-
-  Widget _buildSetupForm() {
-    final title = _workTitle ?? '';
-    final defaultName = '$title 피규어';
-
-    return CatalogSetupForm(
-      initialName: defaultName,
-      initialCategory: 'figure',
-      initialWorkTag: title,
-      initialCoverUrl: _coverUrl,
-      characters: _selectedSetupChars,
-      onSubmit: _createCatalog,
     );
   }
 }

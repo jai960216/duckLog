@@ -6,7 +6,7 @@ import '../../../shared/widgets/duck_empty_state.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_card.dart';
 import 'catalog_detail_screen.dart';
-import 'catalog_form_screen.dart';
+import 'direct_catalog_create_screen.dart';
 import 'anilist_character_screen.dart';
 import 'pokemon_tcg_search_screen.dart';
 import 'ocr_import_screen.dart';
@@ -57,10 +57,10 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
                 icon: PhosphorIconsBold.pencilSimple,
                 color: DuckColors.primaryLight,
                 title: '직접 만들기',
-                subtitle: '도감 이름과 아이템을 직접 입력해요',
+                subtitle: '캐릭터와 아이템을 직접 입력해요',
                 onTap: () {
                   Navigator.pop(context);
-                  _navigateTo(const CatalogFormScreen());
+                  _navigateTo(const DirectCatalogCreateScreen());
                 },
               ),
               _createOption(

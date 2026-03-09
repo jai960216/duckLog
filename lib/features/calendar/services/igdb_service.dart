@@ -65,6 +65,32 @@ class IgdbGame {
   }
 }
 
+class IgdbCharacter {
+  final int id;
+  final String name;
+  final String? imageUrl;
+
+  const IgdbCharacter({
+    required this.id,
+    required this.name,
+    this.imageUrl,
+  });
+
+  factory IgdbCharacter.fromJson(Map<String, dynamic> json) {
+    String? imageUrl;
+    final mugShot = json['mug_shot'] as Map<String, dynamic>?;
+    if (mugShot != null && mugShot['image_id'] != null) {
+      imageUrl =
+          'https://images.igdb.com/igdb/image/upload/t_thumb/${mugShot['image_id']}.jpg';
+    }
+    return IgdbCharacter(
+      id: json['id'] as int,
+      name: json['name'] as String? ?? '',
+      imageUrl: imageUrl,
+    );
+  }
+}
+
 class IgdbService {
   static const _tokenEndpoint = 'https://id.twitch.tv/oauth2/token';
   static const _apiEndpoint = 'https://api.igdb.com/v4';
@@ -177,6 +203,19 @@ class IgdbService {
         .toList();
   }
 
+  /// 게임 캐릭터 조회
+  Future<List<IgdbCharacter>> getCharacters(int gameId) async {
+    final results = await _query(
+      'characters',
+      'fields name,mug_shot.image_id;'
+      ' where games = [$gameId];'
+      ' limit 50;',
+    );
+    return results
+        .map((c) => IgdbCharacter.fromJson(c as Map<String, dynamic>))
+        .toList();
+  }
+
   /// 출시 예정 게임
   Future<List<IgdbGame>> getUpcomingGames() async {
     final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -196,6 +235,24 @@ class IgdbService {
 }
 
 // -- Riverpod Providers --
+
+final igdbGameSearchProvider =
+    FutureProvider.autoDispose.family<List<IgdbGame>, String>(
+  (ref, query) async {
+    final service = ref.read(igdbServiceProvider);
+    if (!service.isConfigured) return [];
+    if (query.isEmpty) return service.getPopularGames();
+    return service.searchGames(query);
+  },
+);
+
+final igdbCharactersProvider =
+    FutureProvider.autoDispose.family<List<IgdbCharacter>, int>(
+  (ref, gameId) async {
+    final service = ref.read(igdbServiceProvider);
+    return service.getCharacters(gameId);
+  },
+);
 
 final popularGamesProvider =
     FutureProvider.autoDispose<List<IgdbGame>>((ref) async {

@@ -12,7 +12,7 @@ import '../services/catalog_service.dart';
 import '../widgets/catalog_item_tile.dart';
 import '../widgets/catalog_setup_form.dart';
 import '../widgets/character_group_section.dart';
-import 'catalog_form_screen.dart';
+import 'catalog_export_screen.dart';
 import 'catalog_item_form_screen.dart';
 
 class CatalogDetailScreen extends ConsumerStatefulWidget {
@@ -194,27 +194,17 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
 
   Future<void> _editCatalog() async {
     final service = ref.read(catalogServiceProvider);
-    final catalog = await service.getCatalogById(widget.catalogId);
-    if (!mounted) return;
-
-    // Check if this catalog has characters
     final characters = await service.getCharacters(widget.catalogId);
     if (!mounted) return;
+    await _editCharacterCatalog(characters);
+  }
 
-    if (characters.isNotEmpty) {
-      // Use CatalogSetupForm for character-based catalogs
-      await _editCharacterCatalog(characters);
-    } else {
-      // Use existing CatalogFormScreen for flat catalogs
-      final result = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => CatalogFormScreen(existingCatalog: catalog),
-        ),
-      );
-      if (result == true) {
-        setState(() => _changed = true);
-      }
-    }
+  void _exportAsImage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CatalogExportScreen(catalogId: widget.catalogId),
+      ),
+    );
   }
 
   Future<void> _editCharacterCatalog(
@@ -248,6 +238,8 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
           initialName: catalog.name,
           initialCategory: catalog.category,
           initialWorkTag: catalog.workTag,
+          initialCoverUrl: catalog.coverUrl,
+          initialCoverFitY: catalog.coverFitY,
           initialVisibility: catalog.visibility,
           characters: charSetupList,
         ),
@@ -409,7 +401,8 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
         ],
       ),
     );
-    nameController.dispose();
+    // Delay dispose to let dialog exit animation finish
+    Future.delayed(const Duration(milliseconds: 300), nameController.dispose);
 
     if (result != null && result.isNotEmpty) {
       final service = ref.read(catalogServiceProvider);
@@ -487,7 +480,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
         ],
       ),
     );
-    nameController.dispose();
+    Future.delayed(const Duration(milliseconds: 300), nameController.dispose);
 
     if (result != null && result.isNotEmpty) {
       final service = ref.read(catalogServiceProvider);
@@ -562,6 +555,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                     icon: const Icon(PhosphorIconsBold.dotsThreeVertical),
                     onSelected: (value) {
                       if (value == 'edit') _editCatalog();
+                      if (value == 'export') _exportAsImage();
                       if (value == 'delete') _deleteCatalog();
                     },
                     itemBuilder: (context) => [
@@ -572,6 +566,16 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                             Icon(PhosphorIconsBold.pencil, size: 18),
                             SizedBox(width: 8),
                             Text('편집'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'export',
+                        child: Row(
+                          children: [
+                            Icon(PhosphorIconsBold.export, size: 18),
+                            SizedBox(width: 8),
+                            Text('이미지로 내보내기'),
                           ],
                         ),
                       ),
@@ -841,21 +845,6 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                 );
               },
             ),
-            floatingActionButton: isOwner
-                ? FloatingActionButton(
-                    onPressed: () {
-                      final grouped =
-                          ref.read(catalogGroupedItemsProvider(
-                              widget.catalogId));
-                      final hasChars = grouped.valueOrNull
-                              ?.characters.isNotEmpty ??
-                          false;
-                      _showFabOptions(hasChars);
-                    },
-                    child:
-                        const Icon(PhosphorIconsBold.plus, size: 24),
-                  )
-                : null,
           ),
         );
       },
@@ -909,6 +898,8 @@ class _CharacterCatalogEditScreen extends ConsumerStatefulWidget {
   final String? initialName;
   final String? initialCategory;
   final String? initialWorkTag;
+  final String? initialCoverUrl;
+  final double initialCoverFitY;
   final String initialVisibility;
   final List<CharacterSetupData> characters;
 
@@ -917,6 +908,8 @@ class _CharacterCatalogEditScreen extends ConsumerStatefulWidget {
     this.initialName,
     this.initialCategory,
     this.initialWorkTag,
+    this.initialCoverUrl,
+    this.initialCoverFitY = 0.5,
     this.initialVisibility = 'private',
     required this.characters,
   });
@@ -936,16 +929,29 @@ class _CharacterCatalogEditScreenState
     required String? workTag,
     required String visibility,
     required List<CharacterSetupData> characters,
+    required String? coverUrl,
+    required XFile? newCoverPhoto,
+    required double coverFitY,
   }) async {
     setState(() => _isLoading = true);
     try {
       final service = ref.read(catalogServiceProvider);
+
+      // Upload cover if new photo selected
+      String? finalCoverUrl = coverUrl;
+      if (newCoverPhoto != null) {
+        final bytes = await newCoverPhoto.readAsBytes();
+        finalCoverUrl =
+            await service.uploadPhoto(bytes, newCoverPhoto.name);
+      }
 
       // 1. Update catalog metadata
       await service.updateCatalog(widget.catalogId, {
         'name': name,
         'category': category,
         'work_tag': workTag,
+        'cover_url': finalCoverUrl,
+        'cover_fit_y': coverFitY,
         'visibility': visibility,
       });
 
@@ -979,11 +985,18 @@ class _CharacterCatalogEditScreenState
         final charData = orderedChars[ci];
 
         if (charData.id != null) {
-          // ── Existing character: update name + sort_order ──
+          // ── Existing character: update name + sort_order + photo ──
+          String? charPhotoUrl = charData.photoUrl;
+          if (charData.newPhotoFile != null) {
+            final photoBytes = await charData.newPhotoFile!.readAsBytes();
+            charPhotoUrl = await service.uploadPhoto(
+                photoBytes, charData.newPhotoFile!.name);
+          }
           debugPrint('[SAVE] updateCharacter(${charData.id!.substring(0, 8)}, sort_order=$ci, name=${charData.name})');
           await service.updateCharacter(charData.id!, {
             'name': charData.name,
             'sort_order': ci,
+            'photo_url': charPhotoUrl,
           });
 
           // Filter items for this character from the pre-fetched list
@@ -1024,10 +1037,16 @@ class _CharacterCatalogEditScreenState
           }
         } else {
           // ── New character ──
+          String? newCharPhotoUrl = charData.photoUrl;
+          if (charData.newPhotoFile != null) {
+            final photoBytes = await charData.newPhotoFile!.readAsBytes();
+            newCharPhotoUrl = await service.uploadPhoto(
+                photoBytes, charData.newPhotoFile!.name);
+          }
           final ch = await service.addCharacter(
             catalogId: widget.catalogId,
             name: charData.name,
-            photoUrl: charData.photoUrl,
+            photoUrl: newCharPhotoUrl,
             externalId: charData.externalId,
             sortOrder: ci,
           );
@@ -1075,6 +1094,8 @@ class _CharacterCatalogEditScreenState
         initialName: widget.initialName,
         initialCategory: widget.initialCategory,
         initialWorkTag: widget.initialWorkTag,
+        initialCoverUrl: widget.initialCoverUrl,
+        initialCoverFitY: widget.initialCoverFitY,
         initialVisibility: widget.initialVisibility,
         characters: widget.characters,
         isEditing: true,

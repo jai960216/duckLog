@@ -10,7 +10,7 @@ import 'features/social/screens/my_page_screen.dart';
 import 'features/catalog/screens/anilist_character_screen.dart';
 import 'features/catalog/screens/ocr_import_screen.dart';
 import 'features/catalog/screens/pokemon_tcg_search_screen.dart';
-import 'features/catalog/screens/catalog_form_screen.dart';
+import 'features/catalog/screens/direct_catalog_create_screen.dart';
 import 'features/catalog/services/catalog_service.dart';
 import 'features/goods/screens/goods_input_screen.dart';
 import 'features/goods/screens/receipt_scan_screen.dart';
@@ -93,10 +93,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                       size: 20, color: DuckColors.outline),
                 ),
                 title: const Text('직접 만들기'),
-                subtitle: const Text('도감 이름과 아이템을 직접 입력해요'),
+                subtitle: const Text('캐릭터와 아이템을 직접 입력해요'),
                 onTap: () {
                   Navigator.pop(context);
-                  _navigateToCatalogScreen(const CatalogFormScreen());
+                  _navigateToCatalogScreen(const DirectCatalogCreateScreen());
                 },
               ),
               ListTile(

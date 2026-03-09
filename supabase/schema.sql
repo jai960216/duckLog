@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS catalogs (
   category TEXT,
   work_tag TEXT,
   cover_url TEXT,
+  cover_fit_y DOUBLE PRECISION DEFAULT 0.5,
   visibility TEXT DEFAULT 'private',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
