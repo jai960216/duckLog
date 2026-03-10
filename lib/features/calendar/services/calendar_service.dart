@@ -4,6 +4,8 @@ import '../../../shared/models/followed_work.dart';
 import '../../../shared/models/calendar_event.dart';
 import '../../auth/services/auth_service.dart';
 import 'anilist_service.dart';
+import 'igdb_service.dart';
+import 'webtoon_service.dart';
 
 final calendarServiceProvider = Provider<CalendarService>((ref) {
   return CalendarService(ref.read(supabaseClientProvider));
@@ -76,6 +78,7 @@ class AiringEntry {
   bool get isManga => workType == 'manga';
   bool get isWebtoon => workType == 'webtoon';
   bool get isGame => workType == 'game';
+  bool get isCustom => workType == 'custom';
 }
 
 /// 팔로우한 작품의 일정 (애니 방영 + 게임 출시, 월별)
@@ -129,34 +132,123 @@ final monthAiringScheduleProvider =
       }
     });
 
-    // ── 게임/웹툰: Supabase calendar_events (병렬 호출) ──
-    final eventBasedWorks = [...gameWorks, ...webtoonWorks];
-    final eventFutures = eventBasedWorks.map((work) async {
+    // ── 웹툰: updateDays 패턴 → 해당 월의 구체적 날짜 변환 ──
+    final webtoonEntries = <AiringEntry>[];
+    const dayToWeekday = {
+      'MON': DateTime.monday,
+      'TUE': DateTime.tuesday,
+      'WED': DateTime.wednesday,
+      'THU': DateTime.thursday,
+      'FRI': DateTime.friday,
+      'SAT': DateTime.saturday,
+      'SUN': DateTime.sunday,
+    };
+
+    // DB의 updateDays가 비어있으면 웹툰 API에서 조회
+    final webtoonService = ref.read(webtoonServiceProvider);
+    for (final work in webtoonWorks) {
+      var days = work.updateDays;
+      if (days.isEmpty && webtoonService.isConfigured) {
+        try {
+          days = await ref.watch(webtoonUpdateDaysProvider(
+              (title: work.title, id: work.externalId)).future);
+        } catch (_) {}
+      }
+
+      for (final day in days) {
+        final weekday = dayToWeekday[day];
+        if (weekday == null) continue;
+        // 해당 월의 첫 번째 해당 요일 찾기
+        var date = startDate;
+        while (date.weekday != weekday) {
+          date = date.add(const Duration(days: 1));
+        }
+        // 해당 월의 모든 해당 요일에 엔트리 생성
+        while (!date.isAfter(endDate)) {
+          webtoonEntries.add(AiringEntry(
+            title: work.title,
+            workType: 'webtoon',
+            externalId: work.externalId,
+            airingDate: date,
+            eventType: 'update',
+          ));
+          date = date.add(const Duration(days: 7));
+        }
+      }
+    }
+
+    // ── 게임: IGDB API에서 출시일 조회 (병렬 호출) ──
+    final igdbService = ref.read(igdbServiceProvider);
+    final gameFutures = gameWorks.map((work) async {
       try {
-        final events =
-            await calendarService.getEventsForWork(work.externalId);
-        return events
-            .where((e) {
-              final date = e.eventDate;
-              return !date.isBefore(startDate) && !date.isAfter(endDate);
-            })
-            .map((e) => AiringEntry(
-                  title: work.title,
-                  workType: work.workType,
-                  externalId: work.externalId,
-                  airingDate: e.eventDate,
-                  eventType: e.eventType,
-                ))
-            .toList();
+        // IGDB API에서 출시일 직접 조회
+        DateTime? releaseDate;
+        if (igdbService.isConfigured) {
+          try {
+            releaseDate = await ref.watch(gameReleaseDateProvider(
+                (title: work.title, id: work.externalId)).future);
+          } catch (_) {}
+        }
+
+        // DB calendar_events 폴백
+        if (releaseDate == null) {
+          try {
+            final events =
+                await calendarService.getEventsForWork(work.externalId);
+            return events
+                .where((e) {
+                  final date = e.eventDate;
+                  return !date.isBefore(startDate) && !date.isAfter(endDate);
+                })
+                .map((e) => AiringEntry(
+                      title: work.title,
+                      workType: work.workType,
+                      externalId: work.externalId,
+                      airingDate: e.eventDate,
+                      eventType: e.eventType,
+                    ))
+                .toList();
+          } catch (_) {}
+          return <AiringEntry>[];
+        }
+
+        // 출시일이 해당 월에 포함되면 엔트리 추가
+        if (!releaseDate.isBefore(startDate) && !releaseDate.isAfter(endDate)) {
+          return [
+            AiringEntry(
+              title: work.title,
+              workType: 'game',
+              externalId: work.externalId,
+              airingDate: releaseDate,
+              eventType: 'release',
+            ),
+          ];
+        }
+        return <AiringEntry>[];
       } catch (_) {
         return <AiringEntry>[];
       }
     });
 
-    final results = await Future.wait([...animeFutures, ...eventFutures]);
+    final results = await Future.wait([...animeFutures, ...gameFutures]);
     for (final list in results) {
       entries.addAll(list);
     }
+    entries.addAll(webtoonEntries);
+
+    // ── 커스텀 이벤트: calendar_events에서 workType='custom' 조회 ──
+    try {
+      final customEvents = await calendarService.getCustomEventsForMonth(
+        DateTime(year, month, 1),
+      );
+      entries.addAll(customEvents.map((e) => AiringEntry(
+            title: e.title,
+            workType: 'custom',
+            externalId: e.externalId,
+            airingDate: e.eventDate,
+            eventType: 'custom',
+          )));
+    } catch (_) {}
 
     entries.sort((a, b) => a.airingDate.compareTo(b.airingDate));
     return entries;
@@ -180,9 +272,10 @@ class CalendarService {
     required String title,
     String? coverUrl,
     String? externalId,
+    List<String> updateDays = const [],
   }) async {
     final effectiveExternalId = externalId ?? _slugify(title);
-    final data = {
+    final baseData = {
       'user_id': _userId,
       'work_type': workType,
       'external_id': effectiveExternalId,
@@ -191,9 +284,24 @@ class CalendarService {
       'notify': true,
     };
 
+    // update_days 컬럼이 있으면 포함, 없으면 재시도
+    if (updateDays.isNotEmpty) {
+      try {
+        final data = {...baseData, 'update_days': updateDays};
+        final response = await _client
+            .from('followed_works')
+            .upsert(data, onConflict: 'user_id,work_type,external_id')
+            .select()
+            .single();
+        return FollowedWork.fromJson(response);
+      } catch (_) {
+        // update_days 컬럼이 없을 수 있음 — 컬럼 없이 재시도
+      }
+    }
+
     final response = await _client
         .from('followed_works')
-        .upsert(data, onConflict: 'user_id,work_type,external_id')
+        .upsert(baseData, onConflict: 'user_id,work_type,external_id')
         .select()
         .single();
     return FollowedWork.fromJson(response);
@@ -286,6 +394,38 @@ class CalendarService {
         .select()
         .single();
     return CalendarEvent.fromJson(response);
+  }
+
+  // Add a custom calendar event (not tied to a followed work)
+  Future<CalendarEvent> addCustomEvent({
+    required String title,
+    required DateTime eventDate,
+  }) async {
+    final externalId = 'custom_${_userId}_${DateTime.now().millisecondsSinceEpoch}';
+    return addEvent(
+      workType: 'custom',
+      externalId: externalId,
+      title: title,
+      eventType: 'custom',
+      eventDate: eventDate,
+    );
+  }
+
+  // Get custom events for a month
+  Future<List<CalendarEvent>> getCustomEventsForMonth(DateTime month) async {
+    final startDate = DateTime(month.year, month.month, 1);
+    final endDate = DateTime(month.year, month.month + 1, 0);
+
+    final response = await _client
+        .from('calendar_events')
+        .select()
+        .eq('work_type', 'custom')
+        .like('external_id', 'custom_${_userId}_%')
+        .gte('event_date', startDate.toIso8601String().split('T').first)
+        .lte('event_date', endDate.toIso8601String().split('T').first)
+        .order('event_date');
+
+    return (response as List).map((e) => CalendarEvent.fromJson(e)).toList();
   }
 
   // Delete a calendar event

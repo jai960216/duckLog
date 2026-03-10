@@ -12,7 +12,6 @@ class CharacterGroupSection extends StatefulWidget {
   final bool isOwner;
   final bool initiallyExpanded;
   final void Function(CatalogItem item) onItemTap;
-  final void Function(String itemId)? onItemLongPress;
   final VoidCallback? onAddItem;
   final VoidCallback? onLongPress;
 
@@ -22,7 +21,6 @@ class CharacterGroupSection extends StatefulWidget {
     this.isOwner = false,
     this.initiallyExpanded = false,
     required this.onItemTap,
-    this.onItemLongPress,
     this.onAddItem,
     this.onLongPress,
   });
@@ -196,9 +194,6 @@ class _CharacterGroupSectionState extends State<CharacterGroupSection>
               return CatalogItemTile(
                 item: item,
                 onTap: () => widget.onItemTap(item),
-                onLongPress: widget.isOwner && widget.onItemLongPress != null
-                    ? () => widget.onItemLongPress!(item.id)
-                    : null,
               );
             },
           ),

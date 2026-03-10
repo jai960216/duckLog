@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
 import '../services/anilist_figure_service.dart';
 import '../../calendar/services/igdb_service.dart';
+import '../../calendar/services/webtoon_service.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_setup_form.dart';
 import 'catalog_detail_screen.dart';
@@ -22,13 +23,14 @@ class _AnilistCharacterScreenState
     extends ConsumerState<AnilistCharacterScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
-  // 'ANIME', 'MANGA', 'GAME'
+  // 'ANIME', 'MANGA', 'WEBTOON', 'GAME'
   String _sourceType = 'ANIME';
 
   // Step 0: search, Step 1: character select, Step 2: setup
   int _step = 0;
   AnilistWork? _selectedWork;
   IgdbGame? _selectedGame;
+  WebtoonData? _selectedWebtoon;
   final Set<int> _selectedIds = {};
   List<CharacterSetupData> _selectedSetupChars = [];
 
@@ -62,18 +64,44 @@ class _AnilistCharacterScreenState
     setState(() {
       _selectedGame = game;
       _selectedWork = null;
+      _selectedWebtoon = null;
       _selectedIds.clear();
       _step = 1;
     });
   }
 
+  void _selectWebtoon(WebtoonData webtoon) {
+    // 웹툰은 캐릭터 API가 없으므로 바로 설정 단계로 이동
+    setState(() {
+      _selectedWebtoon = webtoon;
+      _selectedWork = null;
+      _selectedGame = null;
+      _selectedIds.clear();
+      _selectedSetupChars = [
+        CharacterSetupData(name: '캐릭터', items: [ItemSetupData(name: '아이템')]),
+      ];
+      _workTitle = webtoon.displayTitle;
+      _coverUrl = webtoon.thumbnailUrl;
+      _step = 2;
+    });
+  }
+
   void _goBack() {
     if (_step == 2) {
-      setState(() => _step = 1);
+      // 웹툰은 캐릭터 단계가 없으므로 검색 화면으로
+      if (_selectedWebtoon != null) {
+        setState(() {
+          _selectedWebtoon = null;
+          _step = 0;
+        });
+      } else {
+        setState(() => _step = 1);
+      }
     } else if (_step == 1) {
       setState(() {
         _selectedWork = null;
         _selectedGame = null;
+        _selectedWebtoon = null;
         _selectedIds.clear();
         _step = 0;
       });
@@ -251,7 +279,9 @@ class _AnilistCharacterScreenState
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: _sourceType == 'GAME'
+              hintText: _sourceType == 'WEBTOON'
+                  ? '웹툰 제목 검색...'
+                  : _sourceType == 'GAME'
                   ? '게임 검색 (예: 원신, 젤다)'
                   : '작품 검색 (예: 귀멸의 칼날)',
               prefixIcon: const Icon(PhosphorIconsBold.magnifyingGlass,
@@ -283,6 +313,8 @@ class _AnilistCharacterScreenState
               const SizedBox(width: 8),
               _typeChip('MANGA', '만화/소설'),
               const SizedBox(width: 8),
+              _typeChip('WEBTOON', '웹툰'),
+              const SizedBox(width: 8),
               _typeChip('GAME', '게임'),
             ],
           ),
@@ -297,7 +329,11 @@ class _AnilistCharacterScreenState
                     size: 14, color: DuckColors.textSub),
                 const SizedBox(width: 6),
                 Text(
-                  _sourceType == 'GAME' ? '인기 게임' : '인기 작품',
+                  _sourceType == 'GAME'
+                      ? '인기 게임'
+                      : _sourceType == 'WEBTOON'
+                          ? '인기 웹툰'
+                          : '인기 작품',
                   style: const TextStyle(
                       fontSize: 13, color: DuckColors.textSub),
                 ),
@@ -308,7 +344,9 @@ class _AnilistCharacterScreenState
         Expanded(
           child: _sourceType == 'GAME'
               ? _buildGameResults()
-              : _buildAnilistResults(),
+              : _sourceType == 'WEBTOON'
+                  ? _buildWebtoonResults()
+                  : _buildAnilistResults(),
         ),
       ],
     );
@@ -384,6 +422,78 @@ class _AnilistCharacterScreenState
               _buildGameCard(games[index]),
         );
       },
+    );
+  }
+
+  Widget _buildWebtoonResults() {
+    final asyncWebtoons = _searchQuery.isEmpty
+        ? ref.watch(trendingWebtoonProvider)
+        : ref.watch(webtoonSearchProvider(_searchQuery));
+
+    return asyncWebtoons.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text('웹툰을 불러올 수 없어요\n$e',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: DuckColors.textSub)),
+        ),
+      ),
+      data: (webtoons) {
+        if (webtoons.isEmpty) {
+          return const Center(
+            child: Text('검색 결과가 없어요',
+                style: TextStyle(color: DuckColors.textSub)),
+          );
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.58,
+          ),
+          itemCount: webtoons.length,
+          itemBuilder: (context, index) =>
+              _buildWebtoonCard(webtoons[index]),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebtoonCard(WebtoonData webtoon) {
+    return GestureDetector(
+      onTap: () => _selectWebtoon(webtoon),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: webtoon.thumbnailUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: webtoon.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) =>
+                          Container(color: DuckColors.surface),
+                      errorWidget: (_, e, s) =>
+                          _cardPlaceholder(PhosphorIconsBold.bookOpen),
+                    )
+                  : _cardPlaceholder(PhosphorIconsBold.bookOpen),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            webtoon.displayTitle,
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 

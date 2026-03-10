@@ -25,18 +25,29 @@ class CatalogCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cover image
+          // Cover image — setup form에서 280px 이미지의 중앙 120px 영역을 선택하므로
+          // 동일한 비율로 렌더링하여 영역 일치시킴
           ClipRRect(
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(18)),
             child: catalog.coverUrl != null
-                ? Image.network(
-                    catalog.coverUrl!,
+                ? SizedBox(
                     height: 120,
                     width: double.infinity,
-                    fit: BoxFit.cover,
-                    alignment: Alignment(0, catalog.coverFitY * 2 - 1),
-                    errorBuilder: (_, __, ___) => _placeholder(),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        maxHeight: 280,
+                        alignment: Alignment.center,
+                        child: Image.network(
+                          catalog.coverUrl!,
+                          height: 280,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          alignment: Alignment(0, catalog.coverFitY * 2 - 1),
+                          errorBuilder: (_, __, ___) => _placeholder(),
+                        ),
+                      ),
+                    ),
                   )
                 : _placeholder(),
           ),

@@ -14,6 +14,7 @@ import '../widgets/catalog_setup_form.dart';
 import '../widgets/character_group_section.dart';
 import 'catalog_export_screen.dart';
 import 'catalog_item_form_screen.dart';
+import 'card_type_select_screen.dart';
 
 class CatalogDetailScreen extends ConsumerStatefulWidget {
   final String catalogId;
@@ -35,21 +36,74 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     setState(() => _changed = true);
   }
 
-  /// 아이템 탭 분기
-  Future<void> _onItemTap(CatalogItem item) async {
-    if (item.isCollected) {
-      _showCollectedItemOptions(item);
-    } else if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
-      // 미수집이지만 사진이 있는 경우 → 옵션 시트
-      _showUncollectedWithPhotoOptions(item);
-    } else {
-      // 미수집 + 사진 없음 → 사진 선택 후 수집
-      await _pickPhotoAndCollect(item);
-    }
+  /// 비소유자: 아이템 사진 크게 보기
+  void _showItemPreview(CatalogItem item) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.of(ctx).pop(),
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: item.photoUrl != null
+                        ? Image.network(
+                            item.photoUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => _previewPlaceholder(),
+                          )
+                        : _previewPlaceholder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  /// 미수집 + 사진 있는 아이템 옵션
-  void _showUncollectedWithPhotoOptions(CatalogItem item) {
+  Widget _previewPlaceholder() {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        color: DuckColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: Icon(PhosphorIconsBold.image,
+            size: 48, color: DuckColors.textSub),
+      ),
+    );
+  }
+
+  /// 아이템 탭 → 통합 옵션 시트
+  void _onItemTap(CatalogItem item) {
     showModalBottomSheet(
       context: context,
       builder: (sheetCtx) => SafeArea(
@@ -65,27 +119,75 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // 수집 관련
+            if (!item.isCollected) ...[
+              if (item.photoUrl != null && item.photoUrl!.isNotEmpty)
+                ListTile(
+                  leading: const Icon(PhosphorIconsBold.checkCircle,
+                      color: DuckColors.primary),
+                  title: const Text('수집 확정'),
+                  subtitle: const Text('현재 사진으로 수집 완료 처리해요'),
+                  onTap: () async {
+                    Navigator.pop(sheetCtx);
+                    final service = ref.read(catalogServiceProvider);
+                    await service.toggleCollection(
+                        widget.catalogId, item.id);
+                    _invalidateAll();
+                    if (mounted) {
+                      DuckSnackBar.success(context, '수집 완료!');
+                    }
+                  },
+                ),
+              ListTile(
+                leading: const Icon(PhosphorIconsBold.camera),
+                title: Text(item.photoUrl != null && item.photoUrl!.isNotEmpty
+                    ? '사진 변경 후 수집'
+                    : '사진 추가 후 수집'),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _pickPhotoAndCollect(item);
+                },
+              ),
+            ] else ...[
+              ListTile(
+                leading: const Icon(PhosphorIconsBold.camera),
+                title: const Text('사진 변경'),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _pickPhotoAndCollect(item);
+                },
+              ),
+              ListTile(
+                leading: const Icon(PhosphorIconsBold.x,
+                    color: DuckColors.textSub),
+                title: const Text('수집 해제'),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  final service = ref.read(catalogServiceProvider);
+                  await service.toggleCollection(
+                      widget.catalogId, item.id);
+                  _invalidateAll();
+                },
+              ),
+            ],
+            const Divider(height: 1),
+            // 편집/삭제
             ListTile(
-              leading: const Icon(PhosphorIconsBold.checkCircle,
-                  color: DuckColors.primary),
-              title: const Text('수집 확정'),
-              subtitle: const Text('현재 사진으로 수집 완료 처리해요'),
-              onTap: () async {
+              leading: const Icon(PhosphorIconsBold.pencil),
+              title: const Text('편집'),
+              onTap: () {
                 Navigator.pop(sheetCtx);
-                final service = ref.read(catalogServiceProvider);
-                await service.toggleCollection(widget.catalogId, item.id);
-                _invalidateAll();
-                if (mounted) {
-                  DuckSnackBar.success(context, '수집 완료!');
-                }
+                _editItem(item.id);
               },
             ),
             ListTile(
-              leading: const Icon(PhosphorIconsBold.camera),
-              title: const Text('사진 변경 후 수집'),
+              leading: const Icon(PhosphorIconsBold.trash,
+                  color: DuckColors.error),
+              title: const Text('삭제',
+                  style: TextStyle(color: DuckColors.error)),
               onTap: () {
                 Navigator.pop(sheetCtx);
-                _pickPhotoAndCollect(item);
+                _deleteItem(item.id);
               },
             ),
           ],
@@ -106,7 +208,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
         maxWidth: 1080,
         imageQuality: 85,
       );
-      if (picked == null) return; // 취소 시 아무 것도 안 함
+      if (picked == null) return;
 
       if (mounted) {
         DuckSnackBar.info(context, '사진 업로드 중...');
@@ -135,48 +237,21 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     }
   }
 
-  void _showCollectedItemOptions(CatalogItem item) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              decoration: BoxDecoration(
-                color: DuckColors.textLight,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsBold.camera),
-              title: const Text('사진 변경'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickPhotoAndCollect(item);
-              },
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsBold.x,
-                  color: DuckColors.textSub),
-              title: const Text('수집 해제'),
-              onTap: () async {
-                Navigator.pop(context);
-                final service = ref.read(catalogServiceProvider);
-                await service.toggleCollection(widget.catalogId, item.id);
-                _invalidateAll();
-              },
-            ),
-          ],
+  Future<void> _addItem({String? characterId, String? category}) async {
+    // 카드 도감이면 카드 종류 선택 화면으로 이동
+    if (category == 'card') {
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) =>
+              CardTypeSelectScreen(catalogId: widget.catalogId),
         ),
-      ),
-    );
-  }
+      );
+      if (result == true) {
+        _invalidateAll();
+      }
+      return;
+    }
 
-  Future<void> _addItem({String? characterId}) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => CatalogItemFormScreen(
@@ -186,9 +261,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       ),
     );
     if (result == true) {
-      ref.invalidate(catalogItemsProvider(widget.catalogId));
-      ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
-      setState(() => _changed = true);
+      _invalidateAll();
     }
   }
 
@@ -276,6 +349,8 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     if (confirmed == true) {
       final service = ref.read(catalogServiceProvider);
       await service.deleteCatalog(widget.catalogId);
+      ref.invalidate(myCatalogsProvider);
+      ref.invalidate(publicCatalogsProvider);
       if (mounted) Navigator.of(context).pop(true);
     }
   }
@@ -331,7 +406,11 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     }
   }
 
-  void _showFabOptions(bool hasCharacters) {
+  void _showFabOptions(bool hasCharacters, {String? category}) {
+    if (category == 'card') {
+      _addItem(category: 'card');
+      return;
+    }
     if (!hasCharacters) {
       _addItem();
       return;
@@ -554,11 +633,24 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                   PopupMenuButton<String>(
                     icon: const Icon(PhosphorIconsBold.dotsThreeVertical),
                     onSelected: (value) {
+                      if (value == 'add') _addItem(category: catalog.category);
                       if (value == 'edit') _editCatalog();
                       if (value == 'export') _exportAsImage();
                       if (value == 'delete') _deleteCatalog();
                     },
                     itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'add',
+                        child: Row(
+                          children: [
+                            const Icon(PhosphorIconsBold.plus, size: 18),
+                            const SizedBox(width: 8),
+                            Text(catalog.category == 'card'
+                                ? '카드 추가'
+                                : '아이템 추가'),
+                          ],
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'edit',
                         child: Row(
@@ -641,7 +733,8 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                                 padding:
                                     const EdgeInsets.only(bottom: 10),
                                 child: Wrap(
-                                  spacing: 8,
+                                  spacing: 12,
+                                  runSpacing: 8,
                                   children: [
                                     if (catalog?.category != null)
                                       DuckChip(
@@ -727,11 +820,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                               character: ch,
                               isOwner: isOwner,
                               initiallyExpanded: index == 0,
-                              onItemTap: _onItemTap,
-                              onItemLongPress: isOwner
-                                  ? (itemId) =>
-                                      _showItemOptions(itemId)
-                                  : null,
+                              onItemTap: isOwner ? _onItemTap : _showItemPreview,
                               onAddItem: isOwner
                                   ? () =>
                                       _addItem(characterId: ch.id)
@@ -779,11 +868,9 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                                     grouped.ungrouped[index];
                                 return CatalogItemTile(
                                   item: item,
-                                  onTap: () => _onItemTap(item),
-                                  onLongPress: isOwner
-                                      ? () => _showItemOptions(
-                                          item.id)
-                                      : null,
+                                  onTap: isOwner
+                                      ? () => _onItemTap(item)
+                                      : () => _showItemPreview(item),
                                 );
                               },
                               childCount:
@@ -824,11 +911,9 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                                     grouped.ungrouped[index];
                                 return CatalogItemTile(
                                   item: item,
-                                  onTap: () => _onItemTap(item),
-                                  onLongPress: isOwner
-                                      ? () => _showItemOptions(
-                                          item.id)
-                                      : null,
+                                  onTap: isOwner
+                                      ? () => _onItemTap(item)
+                                      : () => _showItemPreview(item),
                                 );
                               },
                               childCount:
@@ -851,45 +936,6 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     );
   }
 
-  void _showItemOptions(String itemId) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              decoration: BoxDecoration(
-                color: DuckColors.textLight,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsBold.pencil),
-              title: const Text('편집'),
-              onTap: () {
-                Navigator.pop(context);
-                _editItem(itemId);
-              },
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsBold.trash,
-                  color: DuckColors.error),
-              title: const Text('삭제',
-                  style: TextStyle(color: DuckColors.error)),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteItem(itemId);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// 캐릭터 기반 도감 편집 화면
@@ -1099,6 +1145,7 @@ class _CharacterCatalogEditScreenState
         initialVisibility: widget.initialVisibility,
         characters: widget.characters,
         isEditing: true,
+        hideCharacters: widget.initialCategory == 'card',
         isLoading: _isLoading,
         onSubmit: _onSubmit,
       ),

@@ -25,6 +25,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
   final _priceController = TextEditingController();
   final _workTagController = TextEditingController();
   final _artistTagController = TextEditingController();
+  final _purchasePlaceController = TextEditingController();
   final _memoController = TextEditingController();
 
   String? _selectedCategory;
@@ -51,6 +52,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
       _priceController.text = g.price?.toString() ?? '';
       _workTagController.text = g.workTag ?? '';
       _artistTagController.text = g.artistTag ?? '';
+      _purchasePlaceController.text = g.purchasePlace ?? '';
       _memoController.text = g.memo ?? '';
       _selectedCategory = g.category;
       _purchasedAt = g.purchasedAt;
@@ -69,6 +71,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
     _priceController.dispose();
     _workTagController.dispose();
     _artistTagController.dispose();
+    _purchasePlaceController.dispose();
     _memoController.dispose();
     super.dispose();
   }
@@ -218,6 +221,9 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               : _artistTagController.text.trim(),
           'photo_urls': allPhotoUrls,
           'purchased_at': _purchasedAt?.toIso8601String().split('T').first,
+          'purchase_place': _purchasePlaceController.text.trim().isEmpty
+              ? null
+              : _purchasePlaceController.text.trim(),
           'memo': _memoController.text.trim().isEmpty
               ? null
               : _memoController.text.trim(),
@@ -237,6 +243,9 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               : _artistTagController.text.trim(),
           photoUrls: allPhotoUrls,
           purchasedAt: _purchasedAt,
+          purchasePlace: _purchasePlaceController.text.trim().isEmpty
+              ? null
+              : _purchasePlaceController.text.trim(),
           memo: _memoController.text.trim().isEmpty
               ? null
               : _memoController.text.trim(),
@@ -366,6 +375,18 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
 
             // Date
             _buildDatePicker(),
+            const SizedBox(height: 16),
+
+            // Purchase Place
+            DuckTextField(
+              label: '구매 장소',
+              hint: '예: 애니메이트, 쿠팡, 일본 현지',
+              controller: _purchasePlaceController,
+              prefix: const Padding(
+                padding: EdgeInsets.only(left: 16),
+                child: Icon(PhosphorIconsBold.mapPin, size: 18),
+              ),
+            ),
             const SizedBox(height: 16),
 
             // Memo

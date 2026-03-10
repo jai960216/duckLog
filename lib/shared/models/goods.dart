@@ -8,6 +8,7 @@ class Goods {
   final String? artistTag;
   final List<String> photoUrls;
   final DateTime? purchasedAt;
+  final String? purchasePlace;
   final String? memo;
   final String visibility;
   final String? catalogItemId;
@@ -27,6 +28,7 @@ class Goods {
     this.artistTag,
     this.photoUrls = const [],
     this.purchasedAt,
+    this.purchasePlace,
     this.memo,
     this.visibility = 'public',
     this.catalogItemId,
@@ -50,6 +52,7 @@ class Goods {
       purchasedAt: json['purchased_at'] != null
           ? DateTime.parse(json['purchased_at'] as String)
           : null,
+      purchasePlace: json['purchase_place'] as String?,
       memo: json['memo'] as String?,
       visibility: json['visibility'] as String? ?? 'public',
       catalogItemId: json['catalog_item_id'] as String?,
@@ -69,6 +72,7 @@ class Goods {
       'artist_tag': artistTag,
       'photo_urls': photoUrls,
       'purchased_at': purchasedAt?.toIso8601String().split('T').first,
+      'purchase_place': purchasePlace,
       'memo': memo,
       'visibility': visibility,
       'catalog_item_id': catalogItemId,
@@ -83,6 +87,7 @@ class Goods {
     String? artistTag,
     List<String>? photoUrls,
     DateTime? purchasedAt,
+    String? purchasePlace,
     String? memo,
     String? visibility,
     String? catalogItemId,
@@ -98,6 +103,7 @@ class Goods {
       artistTag: artistTag ?? this.artistTag,
       photoUrls: photoUrls ?? this.photoUrls,
       purchasedAt: purchasedAt ?? this.purchasedAt,
+      purchasePlace: purchasePlace ?? this.purchasePlace,
       memo: memo ?? this.memo,
       visibility: visibility ?? this.visibility,
       catalogItemId: clearCatalogItemId ? null : (catalogItemId ?? this.catalogItemId),
@@ -110,11 +116,14 @@ class Goods {
   static const List<String> categories = [
     'figure',
     'photocard',
+    'card',
     'acrylic',
     'album',
     'poster',
     'plush',
     'keyring',
+    'accessory',
+    'book',
     'stationery',
     'clothing',
     'badge',
@@ -127,6 +136,8 @@ class Goods {
         return '피규어';
       case 'photocard':
         return '포토카드';
+      case 'card':
+        return '카드';
       case 'acrylic':
         return '아크릴';
       case 'album':
@@ -137,6 +148,10 @@ class Goods {
         return '인형';
       case 'keyring':
         return '키링';
+      case 'accessory':
+        return '악세서리';
+      case 'book':
+        return '책';
       case 'stationery':
         return '문구';
       case 'clothing':

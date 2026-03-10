@@ -155,6 +155,23 @@ class CatalogService {
         .eq('id', id)
         .select()
         .single();
+
+    // 공개 설정 변경 시 연결된 굿즈도 함께 변경
+    if (updates.containsKey('visibility')) {
+      final newVisibility = updates['visibility'] as String;
+      final itemIds = await _client
+          .from('catalog_items')
+          .select('id')
+          .eq('catalog_id', id);
+      final ids = (itemIds as List).map((r) => r['id'] as String).toList();
+      if (ids.isNotEmpty) {
+        await _client
+            .from('goods')
+            .update({'visibility': newVisibility})
+            .inFilter('catalog_item_id', ids);
+      }
+    }
+
     return Catalog.fromJson(response);
   }
 

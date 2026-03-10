@@ -147,6 +147,24 @@ class WebtoonService {
         .toList();
   }
 
+  /// 제목으로 검색 후 ID 매칭하여 웹툰 조회
+  Future<WebtoonData?> findWebtoon(String title, String id) async {
+    try {
+      final results = await searchWebtoons(title);
+      // ID 정확 매칭 우선
+      for (final w in results) {
+        if (w.id == id) return w;
+      }
+      // 제목 정확 매칭
+      for (final w in results) {
+        if (w.title == title) return w;
+      }
+      // 첫 번째 결과 fallback
+      return results.firstOrNull;
+    } catch (_) {}
+    return null;
+  }
+
   /// 특정 요일 웹툰
   Future<List<WebtoonData>> getWebtoonsByDay(String day) async {
     final uri = Uri.parse('$_endpoint/webtoons').replace(
@@ -173,6 +191,26 @@ final trendingWebtoonProvider =
   if (!service.isConfigured) return [];
   return service.getTrendingWebtoons();
 });
+
+final webtoonSearchProvider =
+    FutureProvider.autoDispose.family<List<WebtoonData>, String>(
+  (ref, query) async {
+    final service = ref.read(webtoonServiceProvider);
+    if (!service.isConfigured || query.isEmpty) return [];
+    return service.searchWebtoons(query);
+  },
+);
+
+/// 웹툰 (title, externalId) → updateDays 조회 (캐시)
+final webtoonUpdateDaysProvider =
+    FutureProvider.autoDispose.family<List<String>, ({String title, String id})>(
+  (ref, params) async {
+    final service = ref.read(webtoonServiceProvider);
+    if (!service.isConfigured) return [];
+    final webtoon = await service.findWebtoon(params.title, params.id);
+    return webtoon?.updateDays ?? [];
+  },
+);
 
 final weekdayWebtoonProvider =
     FutureProvider.autoDispose.family<List<WebtoonData>, String>(

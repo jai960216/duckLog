@@ -175,11 +175,12 @@ class GoodsService {
     String? artistTag,
     List<String>? photoUrls,
     DateTime? purchasedAt,
+    String? purchasePlace,
     String? memo,
     String visibility = 'public',
     String? catalogItemId,
   }) async {
-    final data = {
+    final baseData = {
       'user_id': _userId,
       'name': name,
       'price': price,
@@ -193,8 +194,20 @@ class GoodsService {
       'catalog_item_id': catalogItemId,
     };
 
+    // purchase_place 컬럼이 DB에 없을 수 있으므로 포함해서 시도 후 실패 시 제외
+    if (purchasePlace != null && purchasePlace.isNotEmpty) {
+      try {
+        final data = {...baseData, 'purchase_place': purchasePlace};
+        final response =
+            await _client.from('goods').insert(data).select().single();
+        return Goods.fromJson(response);
+      } catch (_) {
+        // purchase_place 컬럼이 없을 수 있음 — 컬럼 없이 재시도
+      }
+    }
+
     final response =
-        await _client.from('goods').insert(data).select().single();
+        await _client.from('goods').insert(baseData).select().single();
     return Goods.fromJson(response);
   }
 
@@ -240,18 +253,36 @@ class GoodsService {
         .order('created_at', ascending: false)
         .range(from, to);
 
-    return (response as List).map((e) {
+    final rows = response as List;
+
+    // 현재 유저가 좋아요한 goods_id 목록 batch fetch
+    final goodsIds = rows.map((r) => r['id'] as String).toList();
+    final Set<String> likedIds = {};
+    final user = _client.auth.currentUser;
+    if (user != null && goodsIds.isNotEmpty) {
+      final likedResponse = await _client
+          .from('likes')
+          .select('goods_id')
+          .eq('user_id', user.id)
+          .inFilter('goods_id', goodsIds);
+      for (final row in likedResponse as List) {
+        likedIds.add(row['goods_id'] as String);
+      }
+    }
+
+    return rows.map((e) {
       final likesData = e['likes'] as List?;
       final likeCount = (likesData != null && likesData.isNotEmpty)
           ? (likesData[0]['count'] as int? ?? 0)
           : 0;
       final enriched = Map<String, dynamic>.from(e);
       enriched['like_count'] = likeCount;
+      enriched['is_liked_by_me'] = likedIds.contains(e['id']);
       return Goods.fromJson(enriched);
     }).toList();
   }
 
-  // Read - single (with like count)
+  // Read - single (with like count + is_liked_by_me)
   Future<Goods> getGoodsById(String id) async {
     final response = await _client
         .from('goods')
@@ -264,20 +295,51 @@ class GoodsService {
         ? (likesData[0]['count'] as int? ?? 0)
         : 0;
 
+    // 현재 유저가 좋아요했는지 확인
+    bool isLikedByMe = false;
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      final likeCheck = await _client
+          .from('likes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('goods_id', id)
+          .maybeSingle();
+      isLikedByMe = likeCheck != null;
+    }
+
     final enriched = Map<String, dynamic>.from(response);
     enriched['like_count'] = likeCount;
+    enriched['is_liked_by_me'] = isLikedByMe;
     return Goods.fromJson(enriched);
   }
 
   // Update
   Future<Goods> updateGoods(String id, Map<String, dynamic> updates) async {
-    final response = await _client
-        .from('goods')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-    return Goods.fromJson(response);
+    try {
+      final response = await _client
+          .from('goods')
+          .update(updates)
+          .eq('id', id)
+          .select()
+          .single();
+      return Goods.fromJson(response);
+    } catch (e) {
+      // purchase_place 컬럼이 없을 수 있음 — 제외 후 재시도
+      if (updates.containsKey('purchase_place') &&
+          e.toString().contains('purchase_place')) {
+        final safeUpdates = Map<String, dynamic>.from(updates)
+          ..remove('purchase_place');
+        final response = await _client
+            .from('goods')
+            .update(safeUpdates)
+            .eq('id', id)
+            .select()
+            .single();
+        return Goods.fromJson(response);
+      }
+      rethrow;
+    }
   }
 
   // Delete

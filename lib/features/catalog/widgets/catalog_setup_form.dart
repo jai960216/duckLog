@@ -42,6 +42,7 @@ class CatalogSetupForm extends StatefulWidget {
   final String initialVisibility;
   final List<CharacterSetupData> characters;
   final bool isEditing;
+  final bool hideCharacters;
   final String? initialCoverUrl;
   final double initialCoverFitY;
   final bool isLoading;
@@ -66,6 +67,7 @@ class CatalogSetupForm extends StatefulWidget {
     this.initialVisibility = 'private',
     required this.characters,
     this.isEditing = false,
+    this.hideCharacters = false,
     this.isLoading = false,
     required this.onSubmit,
   });
@@ -272,7 +274,32 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
               const SizedBox(height: 16),
               _buildVisibilitySelector(),
               const SizedBox(height: 20),
-              if (_characters.isNotEmpty) ...[
+              if (widget.hideCharacters)
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: DuckColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIconsBold.info,
+                          size: 18, color: DuckColors.textSub),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '개별 카드의 이름·사진 수정은 도감 화면에서\n카드를 탭하여 변경할 수 있어요.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: DuckColors.text,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!widget.hideCharacters && _characters.isNotEmpty) ...[
                 Row(
                   children: [
                     Text(
@@ -305,23 +332,26 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
           padding: const EdgeInsets.fromLTRB(0, 12, 0, 20),
           child: Column(
             children: [
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _addCharacter,
-                  icon: const Icon(PhosphorIconsBold.plus, size: 16),
-                  label: const Text('캐릭터 추가'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: DuckColors.primaryDark,
-                    side: const BorderSide(color: DuckColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              if (!widget.hideCharacters)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _addCharacter,
+                      icon: const Icon(PhosphorIconsBold.plus, size: 16),
+                      label: const Text('캐릭터 추가'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: DuckColors.primaryDark,
+                        side: const BorderSide(color: DuckColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: DuckButton(
@@ -333,7 +363,7 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
             ],
           ),
         ),
-        itemCount: _characters.length,
+        itemCount: widget.hideCharacters ? 0 : _characters.length,
         itemBuilder: (context, ci) => _buildCharacterCard(ci),
       ),
     );

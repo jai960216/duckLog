@@ -8,7 +8,7 @@ import '../widgets/catalog_card.dart';
 import 'catalog_detail_screen.dart';
 import 'direct_catalog_create_screen.dart';
 import 'anilist_character_screen.dart';
-import 'pokemon_tcg_search_screen.dart';
+import 'card_type_select_screen.dart';
 
 class CatalogListScreen extends ConsumerStatefulWidget {
   const CatalogListScreen({super.key});
@@ -65,11 +65,11 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
               _createOption(
                 icon: PhosphorIconsBold.cards,
                 color: DuckColors.tagPhotocard,
-                title: '포켓몬 카드',
-                subtitle: '카드 세트를 검색해서 도감을 자동 생성해요',
+                title: '카드 도감',
+                subtitle: '포켓몬·유희왕·MTG·디지몬 카드 도감을 만들어요',
                 onTap: () {
                   Navigator.pop(context);
-                  _navigateTo(const PokemonTcgSearchScreen());
+                  _navigateTo(const CardTypeSelectScreen());
                 },
               ),
               _createOption(

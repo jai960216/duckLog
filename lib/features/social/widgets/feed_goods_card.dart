@@ -193,6 +193,8 @@ class FeedGoodsCard extends StatelessWidget {
         return DuckColors.tagFigure;
       case 'photocard':
         return DuckColors.tagPhotocard;
+      case 'card':
+        return DuckColors.tagCard;
       case 'album':
         return DuckColors.tagAlbum;
       case 'acrylic':

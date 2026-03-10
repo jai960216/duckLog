@@ -5,7 +5,10 @@ import '../../../config/colors.dart';
 import '../../../shared/models/followed_work.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../services/anilist_service.dart';
 import '../services/calendar_service.dart';
+import '../services/igdb_service.dart';
+import '../services/webtoon_service.dart';
 import 'work_detail_screen.dart';
 import 'work_search_screen.dart';
 
@@ -22,6 +25,76 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   String get _monthKey =>
       '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}';
+
+  Future<void> _openWorkDetail(FollowedWork work) async {
+    // 로딩 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: DuckColors.primary),
+      ),
+    );
+
+    try {
+      AnilistMedia? animeData;
+      WebtoonData? webtoonData;
+      IgdbGame? gameData;
+
+      if (work.workType == 'anime' || work.workType == 'manga') {
+        final mediaId = int.tryParse(work.externalId);
+        if (mediaId != null) {
+          final service = ref.read(anilistServiceProvider);
+          final results = work.workType == 'anime'
+              ? await service.searchAnime(work.title)
+              : await service.searchManga(work.title);
+          animeData = results
+              .where((m) => m.id == mediaId)
+              .firstOrNull;
+          animeData ??= results.firstOrNull;
+        }
+      } else if (work.workType == 'webtoon') {
+        final service = ref.read(webtoonServiceProvider);
+        if (service.isConfigured) {
+          webtoonData = await service.findWebtoon(work.title, work.externalId);
+        }
+      } else if (work.workType == 'game') {
+        final gameId = int.tryParse(work.externalId);
+        if (gameId != null) {
+          final service = ref.read(igdbServiceProvider);
+          if (service.isConfigured) {
+            gameData = await service.findGame(work.title, gameId);
+          }
+        }
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkDetailScreen(
+            work: work,
+            animeData: animeData,
+            webtoonData: webtoonData,
+            gameData: gameData,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+      // 데이터 로드 실패해도 기본 상세페이지 표시
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkDetailScreen(work: work),
+        ),
+      );
+    }
+  }
+
 
   Future<void> _confirmUnfollow(String id, String title) async {
     final confirmed = await showDialog<bool>(
@@ -59,63 +132,63 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final airingEntries = ref.watch(monthAiringScheduleProvider(_monthKey));
 
     return Column(
-      children: [
-        // Followed works chip bar
-        _buildFollowedWorksBar(followedWorks),
+          children: [
+            // Followed works chip bar
+            _buildFollowedWorksBar(followedWorks),
 
-        // Month selector
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    _selectedMonth = DateTime(
-                      _selectedMonth.year,
-                      _selectedMonth.month - 1,
-                    );
-                    _selectedDate = null;
-                  });
-                },
-                icon: const Icon(PhosphorIconsBold.caretLeft, size: 20),
+            // Month selector
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedMonth = DateTime(
+                          _selectedMonth.year,
+                          _selectedMonth.month - 1,
+                        );
+                        _selectedDate = null;
+                      });
+                    },
+                    icon: const Icon(PhosphorIconsBold.caretLeft, size: 20),
+                  ),
+                  Text(
+                    Formatters.yearMonth(_selectedMonth),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedMonth = DateTime(
+                          _selectedMonth.year,
+                          _selectedMonth.month + 1,
+                        );
+                        _selectedDate = null;
+                      });
+                    },
+                    icon: const Icon(PhosphorIconsBold.caretRight, size: 20),
+                  ),
+                ],
               ),
-              Text(
-                Formatters.yearMonth(_selectedMonth),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    _selectedMonth = DateTime(
-                      _selectedMonth.year,
-                      _selectedMonth.month + 1,
-                    );
-                    _selectedDate = null;
-                  });
-                },
-                icon: const Icon(PhosphorIconsBold.caretRight, size: 20),
-              ),
-            ],
-          ),
-        ),
+            ),
 
-        // Calendar grid
-        _buildCalendarGrid(airingEntries),
+            // Calendar grid
+            _buildCalendarGrid(airingEntries),
 
-        const Divider(height: 1),
+            const Divider(height: 1),
 
-        // Events for selected date
-        Expanded(
-          child: _selectedDate != null
-              ? _buildEventsForDate(_selectedDate!, airingEntries)
-              : const DuckEmptyState(
-                  message: '날짜를 선택하면\n방영 일정을 확인할 수 있어요.',
-                  icon: PhosphorIconsBold.calendarBlank,
-                ),
-        ),
-      ],
+            // Events for selected date
+            Expanded(
+              child: _selectedDate != null
+                  ? _buildEventsForDate(_selectedDate!, airingEntries)
+                  : const DuckEmptyState(
+                      message: '날짜를 선택하면\n방영 일정을 확인할 수 있어요.',
+                      icon: PhosphorIconsBold.calendarBlank,
+                    ),
+            ),
+          ],
     );
   }
 
@@ -171,12 +244,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   label: work.title,
                   icon: icon,
                   backgroundColor: bgColor,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => WorkDetailScreen(work: work),
-                    ),
-                  ),
+                  onTap: () => _openWorkDetail(work),
                   onLongPress: () => _confirmUnfollow(work.id, work.title),
                 ),
               );
@@ -338,6 +406,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                   ),
+                                if (dayTypes.contains('custom'))
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    margin: const EdgeInsets.only(
+                                        top: 2, left: 1),
+                                    decoration: const BoxDecoration(
+                                      color: DuckColors.text,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                               ],
                             ),
                         ],
@@ -397,6 +476,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               'anime' => (DuckColors.sub, PhosphorIconsBold.television, '방영'),
               'manga' => (DuckColors.primary, PhosphorIconsBold.bookOpen, '연재'),
               'webtoon' => (DuckColors.webtoon, PhosphorIconsBold.bookOpen, '업데이트'),
+              'custom' => (DuckColors.text, PhosphorIconsBold.notepad, '일정'),
               _ => (DuckColors.accent, PhosphorIconsBold.gameController, '출시'),
             };
 

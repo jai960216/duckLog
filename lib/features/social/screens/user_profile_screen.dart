@@ -5,6 +5,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/friendship.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../catalog/screens/catalog_detail_screen.dart';
+import '../../goods/screens/goods_detail_screen.dart';
 import '../../goods/widgets/goods_card.dart';
 import '../services/feed_service.dart';
 import '../services/friend_service.dart';
@@ -25,6 +27,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider(widget.userId));
     final goodsAsync = ref.watch(userGoodsProvider(widget.userId));
+    final catalogsAsync = ref.watch(userCatalogsProvider(widget.userId));
     final relationAsync = ref.watch(relationshipProvider(widget.userId));
 
     return Scaffold(
@@ -126,7 +129,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               // Goods count
               goodsAsync.when(
                 data: (goods) => DuckCard(
-                  margin: EdgeInsets.zero,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -165,7 +167,19 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   }
                   return Column(
                     children: goods
-                        .map((g) => GoodsCard(goods: g))
+                        .map((g) => GoodsCard(
+                              goods: g,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => GoodsDetailScreen(
+                                      goodsId: g.id,
+                                      readOnly: true,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ))
                         .toList(),
                   );
                 },
@@ -180,6 +194,106 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   message: '데이터를 불러올 수 없어요.',
                   icon: PhosphorIconsBold.warning,
                 ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Catalogs section
+              catalogsAsync.when(
+                data: (catalogs) {
+                  if (catalogs.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '공개 도감 ${catalogs.length}개',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      ...catalogs.map((catalog) => DuckCard(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CatalogDetailScreen(
+                                catalogId: catalog.id,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            // Cover thumbnail
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: catalog.coverUrl != null
+                                    ? Image.network(
+                                        catalog.coverUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            Container(
+                                          color: DuckColors.surface,
+                                          child: const Icon(
+                                            PhosphorIconsBold.books,
+                                            color: DuckColors.textSub,
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        color: DuckColors.surface,
+                                        child: const Icon(
+                                          PhosphorIconsBold.books,
+                                          color: DuckColors.textSub,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    catalog.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (catalog.workTag != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      catalog.workTag!,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: DuckColors.textSub,
+                                          ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              PhosphorIconsBold.caretRight,
+                              size: 16,
+                              color: DuckColors.textSub,
+                            ),
+                          ],
+                        ),
+                      )),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
               ),
             ],
           );

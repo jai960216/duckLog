@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../catalog/screens/catalog_detail_screen.dart';
 import '../../catalog/services/catalog_service.dart';
+import '../../social/services/feed_service.dart';
 import '../services/goods_service.dart';
 import 'goods_input_screen.dart';
 
@@ -17,64 +17,77 @@ final goodsDetailProvider =
   return ref.read(goodsServiceProvider).getGoodsById(id);
 });
 
-class GoodsDetailScreen extends ConsumerWidget {
+class GoodsDetailScreen extends ConsumerStatefulWidget {
   final String goodsId;
+  final bool readOnly;
 
-  const GoodsDetailScreen({super.key, required this.goodsId});
+  const GoodsDetailScreen(
+      {super.key, required this.goodsId, this.readOnly = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final goodsAsync = ref.watch(goodsDetailProvider(goodsId));
+  ConsumerState<GoodsDetailScreen> createState() => _GoodsDetailScreenState();
+}
+
+class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
+  bool? _isLiked;
+  int? _likeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final goodsAsync = ref.watch(goodsDetailProvider(widget.goodsId));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('굿즈 상세'),
         actions: [
-          goodsAsync.whenOrNull(
-                data: (goods) => PopupMenuButton<String>(
-                  icon: const Icon(PhosphorIconsBold.dotsThree),
-                  onSelected: (value) async {
-                    if (value == 'edit') {
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              GoodsInputScreen(existingGoods: goods),
-                        ),
-                      );
-                      if (result == true) {
-                        ref.invalidate(goodsDetailProvider(goodsId));
+          if (!widget.readOnly)
+            goodsAsync.whenOrNull(
+                  data: (goods) => PopupMenuButton<String>(
+                    icon: const Icon(PhosphorIconsBold.dotsThree),
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        final result =
+                            await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                GoodsInputScreen(existingGoods: goods),
+                          ),
+                        );
+                        if (result == true) {
+                          ref.invalidate(
+                              goodsDetailProvider(widget.goodsId));
+                        }
+                      } else if (value == 'delete') {
+                        _confirmDelete(context, ref, goods);
                       }
-                    } else if (value == 'delete') {
-                      _confirmDelete(context, ref, goods);
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(PhosphorIconsBold.pencil, size: 18),
-                          SizedBox(width: 8),
-                          Text('수정'),
-                        ],
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(PhosphorIconsBold.pencil, size: 18),
+                            SizedBox(width: 8),
+                            Text('수정'),
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(PhosphorIconsBold.trash, size: 18,
-                              color: DuckColors.error),
-                          SizedBox(width: 8),
-                          Text('삭제',
-                              style: TextStyle(color: DuckColors.error)),
-                        ],
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(PhosphorIconsBold.trash,
+                                size: 18, color: DuckColors.error),
+                            SizedBox(width: 8),
+                            Text('삭제',
+                                style: TextStyle(color: DuckColors.error)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ) ??
-              const SizedBox.shrink(),
+                    ],
+                  ),
+                ) ??
+                const SizedBox.shrink(),
         ],
       ),
       body: goodsAsync.when(
@@ -91,6 +104,9 @@ class GoodsDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildDetail(BuildContext context, WidgetRef ref, Goods goods) {
+    final isLiked = _isLiked ?? goods.isLikedByMe;
+    final likeCount = _likeCount ?? goods.likeCount;
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -101,16 +117,20 @@ class GoodsDetailScreen extends ConsumerWidget {
             child: PageView.builder(
               itemCount: goods.photoUrls.length,
               itemBuilder: (context, index) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: CachedNetworkImage(
-                    imageUrl: goods.photoUrls[index],
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: DuckColors.surface,
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          color: DuckColors.primary,
+                return GestureDetector(
+                  onTap: () =>
+                      _showPhotoPreview(context, goods.photoUrls, index),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: CachedNetworkImage(
+                      imageUrl: goods.photoUrls[index],
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        color: DuckColors.surface,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: DuckColors.primary,
+                          ),
                         ),
                       ),
                     ),
@@ -165,32 +185,42 @@ class GoodsDetailScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
 
-        // Like count
-        if (goods.likeCount > 0) ...[
-          Row(
+        // Like button row
+        GestureDetector(
+          onTap: () => _handleLike(goods.id, isLiked, likeCount),
+          child: Row(
             children: [
-              const Icon(PhosphorIconsBold.heart,
-                  size: 18, color: DuckColors.error),
+              Icon(
+                isLiked
+                    ? PhosphorIconsFill.heart
+                    : PhosphorIconsBold.heart,
+                size: 22,
+                color: DuckColors.error,
+              ),
               const SizedBox(width: 8),
               Text(
-                '좋아요 ${goods.likeCount}개',
+                likeCount > 0 ? '좋아요 $likeCount개' : '좋아요',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-        ],
+        ),
+        const SizedBox(height: 12),
 
         // Info rows
         _infoRow(context, PhosphorIconsBold.calendar, '구매일',
             goods.purchasedAt != null ? Formatters.date(goods.purchasedAt) : '-'),
+        if (goods.purchasePlace != null && goods.purchasePlace!.isNotEmpty)
+          _infoRow(context, PhosphorIconsBold.mapPin, '구매 장소',
+              goods.purchasePlace!),
         _infoRow(context, PhosphorIconsBold.eye, '공개 범위',
             _visibilityLabel(goods.visibility)),
 
         // Catalog link
-        if (goods.catalogItemId != null) _buildCatalogLink(context, ref, goods),
+        if (goods.catalogItemId != null)
+          _buildCatalogLink(context, ref, goods),
 
         // Memo
         if (goods.memo != null && goods.memo!.isNotEmpty) ...[
@@ -223,8 +253,26 @@ class GoodsDetailScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _handleLike(
+      String goodsId, bool currentlyLiked, int currentCount) async {
+    // Optimistic update
+    setState(() {
+      _isLiked = !currentlyLiked;
+      _likeCount = currentlyLiked ? currentCount - 1 : currentCount + 1;
+    });
+
+    try {
+      await ref.read(feedServiceProvider).toggleLike(goodsId);
+    } catch (_) {
+      // Revert on error
+      setState(() {
+        _isLiked = currentlyLiked;
+        _likeCount = currentCount;
+      });
+    }
+  }
+
   Widget _buildCatalogLink(BuildContext context, WidgetRef ref, Goods goods) {
-    // Provider 기반 조회로 FutureBuilder 재생성 방지
     final catalogFuture = ref.watch(
       catalogForItemProvider(goods.catalogItemId!),
     );
@@ -279,12 +327,51 @@ class GoodsDetailScreen extends ConsumerWidget {
         children: [
           Icon(icon, size: 18, color: DuckColors.textSub),
           const SizedBox(width: 10),
-          Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: DuckColors.textSub,
-              )),
+          Text(label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: DuckColors.textSub,
+                  )),
           const Spacer(),
           Text(value, style: Theme.of(context).textTheme.bodyMedium),
         ],
+      ),
+    );
+  }
+
+  void _showPhotoPreview(
+      BuildContext context, List<String> photoUrls, int initialIndex) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.of(ctx).pop(),
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+              ),
+              child: PageView.builder(
+                controller: PageController(initialPage: initialIndex),
+                itemCount: photoUrls.length,
+                itemBuilder: (_, index) => ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: CachedNetworkImage(
+                    imageUrl: photoUrls[index],
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(
+                          color: DuckColors.primary),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -303,7 +390,6 @@ class GoodsDetailScreen extends ConsumerWidget {
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref, Goods goods) {
-    // 다이얼로그 context가 외부 context를 shadow하므로 미리 캡처
     final outerNavigator = Navigator.of(context);
     final outerMessenger = ScaffoldMessenger.of(context);
 
@@ -319,12 +405,13 @@ class GoodsDetailScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(dialogCtx).pop(); // close dialog
+              Navigator.of(dialogCtx).pop();
               try {
                 await ref.read(goodsServiceProvider).deleteGoods(goods.id);
                 ref.invalidate(goodsListProvider);
                 ref.invalidate(monthlySpendingProvider);
-                ref.invalidate(goodsDetailProvider(goodsId));
+                ref.invalidate(monthlyStatsProvider);
+                ref.invalidate(goodsDetailProvider(widget.goodsId));
                 outerNavigator.pop(true);
               } catch (e) {
                 outerMessenger.showSnackBar(

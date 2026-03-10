@@ -38,6 +38,7 @@ class DuckColors {
   // Category tag colors
   static const Color tagFigure = Color(0xFFFFE0B2);
   static const Color tagPhotocard = Color(0xFFFFCDD2);
+  static const Color tagCard = Color(0xFFFFF9C4);
   static const Color tagAlbum = Color(0xFFBBDEFB);
   static const Color tagAcrylic = Color(0xFFC8E6C9);
   static const Color tagOther = Color(0xFFE1BEE7);

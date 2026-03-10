@@ -309,6 +309,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           if (result == true) {
                             ref.invalidate(goodsListProvider);
                             ref.invalidate(monthlySpendingProvider);
+                            ref.invalidate(monthlyStatsProvider);
                           }
                         },
                       ))

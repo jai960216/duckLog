@@ -50,7 +50,15 @@ class AuthService {
 
   // Google Sign In — 네이티브 SDK (앱 내 계정 선택기)
   Future<AuthResponse> signInWithGoogle() async {
+    if (!GoogleAuthConfig.isConfigured) {
+      throw Exception(
+        'Google 로그인이 설정되지 않았습니다.\n'
+        '--dart-define=GOOGLE_WEB_CLIENT_ID 를 확인해주세요.',
+      );
+    }
+
     final googleSignIn = GoogleSignIn(
+      scopes: ['email'],
       serverClientId: GoogleAuthConfig.webClientId,
     );
 
@@ -64,7 +72,10 @@ class AuthService {
     final accessToken = googleAuth.accessToken;
 
     if (idToken == null) {
-      throw Exception('Google ID 토큰을 가져올 수 없습니다.');
+      throw Exception(
+        'Google ID 토큰을 가져올 수 없습니다.\n'
+        'serverClientId(웹 클라이언트 ID) 설정과 SHA-1 등록을 확인해주세요.',
+      );
     }
 
     return await _client.auth.signInWithIdToken(
@@ -197,13 +208,43 @@ class AuthService {
 
   // Delete account
   Future<void> deleteAccount() async {
-    // RLS cascade will handle related data
     final user = currentUser;
     if (user == null) return;
 
-    // Delete profile (cascade deletes goods, receipts, etc.)
-    await _client.from('profiles').delete().eq('id', user.id);
+    final userId = user.id;
+
+    // 1. Storage 파일 정리
+    await _deleteStorageFiles(userId);
+
+    // 2. Delete profile (cascade deletes goods, receipts, etc.)
+    await _client.from('profiles').delete().eq('id', userId);
+
+    // 3. Auth 계정 삭제 (admin API — Edge Function 필요 시 signOut만)
+    try {
+      await _client.auth.admin.deleteUser(userId);
+    } catch (_) {
+      // admin 권한 없으면 signOut만 처리
+      await _client.auth.signOut();
+      return;
+    }
     await _client.auth.signOut();
+  }
+
+  /// Storage 버킷에서 유저 관련 파일 삭제
+  Future<void> _deleteStorageFiles(String userId) async {
+    const buckets = ['goods-photos', 'receipt-photos', 'avatars', 'catalog-photos'];
+
+    for (final bucket in buckets) {
+      try {
+        final files = await _client.storage.from(bucket).list(path: userId);
+        if (files.isNotEmpty) {
+          final paths = files.map((f) => '$userId/${f.name}').toList();
+          await _client.storage.from(bucket).remove(paths);
+        }
+      } catch (_) {
+        // 버킷이 없거나 파일이 없으면 무시
+      }
+    }
   }
 }
 

@@ -242,6 +242,21 @@ class IgdbService {
         .toList();
   }
 
+  /// 제목으로 검색 후 ID 매칭하여 게임 조회
+  Future<IgdbGame?> findGame(String title, int id) async {
+    try {
+      final results = await searchGames(title);
+      for (final g in results) {
+        if (g.id == id) return g;
+      }
+      for (final g in results) {
+        if (g.name == title) return g;
+      }
+      return results.firstOrNull;
+    } catch (_) {}
+    return null;
+  }
+
   /// 출시 예정 게임
   Future<List<IgdbGame>> getUpcomingGames() async {
     final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -287,6 +302,19 @@ final popularGamesProvider =
   if (!service.isConfigured) return [];
   return service.getPopularGames();
 });
+
+/// 게임 (title, externalId) → releaseDate 조회 (캐시)
+final gameReleaseDateProvider =
+    FutureProvider.autoDispose.family<DateTime?, ({String title, String id})>(
+  (ref, params) async {
+    final service = ref.read(igdbServiceProvider);
+    if (!service.isConfigured) return null;
+    final gameId = int.tryParse(params.id);
+    if (gameId == null) return null;
+    final game = await service.findGame(params.title, gameId);
+    return game?.releaseDate;
+  },
+);
 
 final upcomingGamesProvider =
     FutureProvider.autoDispose<List<IgdbGame>>((ref) async {

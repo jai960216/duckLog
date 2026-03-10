@@ -8,13 +8,17 @@ import 'features/calendar/screens/calendar_screen.dart';
 import 'features/catalog/screens/catalog_list_screen.dart';
 import 'features/social/screens/my_page_screen.dart';
 import 'features/catalog/screens/anilist_character_screen.dart';
-import 'features/catalog/screens/pokemon_tcg_search_screen.dart';
+import 'features/catalog/screens/card_type_select_screen.dart';
 import 'features/catalog/screens/direct_catalog_create_screen.dart';
 import 'features/catalog/services/catalog_service.dart';
+import 'features/calendar/screens/work_search_screen.dart';
+import 'features/calendar/services/calendar_service.dart';
 import 'features/goods/screens/goods_input_screen.dart';
 import 'features/goods/screens/receipt_scan_screen.dart';
 import 'features/goods/services/goods_service.dart';
 import 'features/social/screens/notification_settings_screen.dart';
+import 'shared/utils/formatters.dart';
+import 'shared/widgets/widgets.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -52,6 +56,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _refreshData() {
     ref.invalidate(goodsListProvider);
     ref.invalidate(monthlySpendingProvider);
+    ref.invalidate(monthlyStatsProvider);
   }
 
   Future<void> _navigateToCatalogScreen(Widget screen) async {
@@ -107,11 +112,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                   child: const Icon(PhosphorIconsBold.cards,
                       size: 20, color: DuckColors.outline),
                 ),
-                title: const Text('포켓몬 카드'),
-                subtitle: const Text('카드 세트를 검색해서 도감을 자동 생성해요'),
+                title: const Text('카드 도감'),
+                subtitle: const Text('포켓몬·유희왕·MTG·디지몬 카드 도감을 만들어요'),
                 onTap: () {
                   Navigator.pop(context);
-                  _navigateToCatalogScreen(const PokemonTcgSearchScreen());
+                  _navigateToCatalogScreen(const CardTypeSelectScreen());
                 },
               ),
               ListTile(
@@ -209,6 +214,157 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  void _showCalendarAddSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: DuckColors.textLight,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: DuckColors.primaryLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(PhosphorIconsBold.calendarPlus,
+                      size: 20, color: DuckColors.outline),
+                ),
+                title: const Text('일정 추가'),
+                subtitle: const Text('커스텀 일정을 추가해요'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddCustomEventDialog();
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: DuckColors.subLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(PhosphorIconsBold.plusCircle,
+                      size: 20, color: DuckColors.outline),
+                ),
+                title: const Text('작품 추가'),
+                subtitle: const Text('작품을 팔로우해서 일정을 받아요'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const WorkSearchScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddCustomEventDialog() async {
+    final titleController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('일정 추가'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  hintText: '일정 제목',
+                  prefixIcon: Icon(PhosphorIconsBold.notepad, size: 20),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => selectedDate = picked);
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: DuckColors.textLight),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(PhosphorIconsBold.calendar,
+                          size: 20, color: DuckColors.textSub),
+                      const SizedBox(width: 8),
+                      Text(Formatters.date(selectedDate)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('추가'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true && titleController.text.trim().isNotEmpty) {
+      try {
+        final service = ref.read(calendarServiceProvider);
+        await service.addCustomEvent(
+          title: titleController.text.trim(),
+          eventDate: selectedDate,
+        );
+        final key =
+            '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}';
+        ref.invalidate(monthAiringScheduleProvider(key));
+        if (mounted) {
+          DuckSnackBar.success(context, '일정이 추가되었어요.');
+        }
+      } catch (e) {
+        if (mounted) {
+          DuckSnackBar.error(context, '일정 추가 실패: $e');
+        }
+      }
+    }
+    titleController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,7 +390,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       floatingActionButton: FloatingActionButton(
         onPressed: _currentIndex == 3
             ? _showCatalogCreateSheet
-            : _showAddBottomSheet,
+            : _currentIndex == 2
+                ? _showCalendarAddSheet
+                : _showAddBottomSheet,
         child: const Icon(PhosphorIconsBold.plus, size: 24),
       ),
       bottomNavigationBar: Container(

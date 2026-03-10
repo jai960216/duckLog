@@ -198,49 +198,10 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         title: webtoon.displayTitle,
         coverUrl: webtoon.thumbnailUrl,
         externalId: webtoon.id,
+        updateDays: webtoon.updateDays,
       );
 
-      // 연재 요일 기반 향후 4주간 캘린더 이벤트 생성 (실패해도 OK)
-      if (webtoon.updateDays.isNotEmpty && !webtoon.isEnd) {
-        try {
-          const dayToWeekday = {
-            'MON': DateTime.monday,
-            'TUE': DateTime.tuesday,
-            'WED': DateTime.wednesday,
-            'THU': DateTime.thursday,
-            'FRI': DateTime.friday,
-            'SAT': DateTime.saturday,
-            'SUN': DateTime.sunday,
-          };
-
-          final now = DateTime.now();
-          final today = DateTime(now.year, now.month, now.day);
-          final futures = <Future>[];
-
-          for (final day in webtoon.updateDays) {
-            final weekday = dayToWeekday[day];
-            if (weekday == null) continue;
-
-            for (int week = 0; week < 4; week++) {
-              // 이번 주 해당 요일 계산
-              final diff = weekday - today.weekday;
-              final targetDate =
-                  today.add(Duration(days: diff + (week * 7)));
-              // 과거 날짜는 건너뜀
-              if (targetDate.isBefore(today)) continue;
-
-              futures.add(calendarService.addEvent(
-                workType: 'webtoon',
-                externalId: webtoon.id,
-                title: webtoon.displayTitle,
-                eventType: 'update',
-                eventDate: targetDate,
-              ));
-            }
-          }
-          await Future.wait(futures);
-        } catch (_) {}
-      }
+      // 연재 일정은 updateDays 패턴에서 동적으로 생성하므로 calendar_events 저장 불필요
 
       ref.invalidate(followedWorksProvider);
       if (mounted) {
@@ -392,7 +353,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
                     ),
                     const SizedBox(width: 8),
                     DuckChip(
-                      label: '만화',
+                      label: '만화/소설',
                       icon: PhosphorIconsBold.bookOpen,
                       selected: isManga,
                       backgroundColor: DuckColors.primaryLight,

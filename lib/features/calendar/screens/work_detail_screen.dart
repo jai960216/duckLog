@@ -4,7 +4,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../config/colors.dart';
-import '../../../shared/models/calendar_event.dart';
 import '../../../shared/models/followed_work.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/widgets.dart';
@@ -75,9 +74,7 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
     final airingSchedule = isAnime
         ? ref.watch(workAiringScheduleProvider(widget.work.externalId))
         : null;
-    final calendarEvents = (isGame || isWebtoon)
-        ? ref.watch(workEventsProvider(widget.work.externalId))
-        : null;
+    // calendarEvents no longer needed — using IgdbGame.releaseDate directly
 
     return Scaffold(
       appBar: AppBar(
@@ -120,16 +117,16 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
           // ── 웹툰: 작품 정보 + 연재 일정 ──
           if (isWebtoon && widget.webtoonData != null)
             _buildWebtoonInfoSection(context, widget.webtoonData!),
-          if (isWebtoon && calendarEvents != null)
-            _buildWebtoonSection(context, calendarEvents),
+          if (isWebtoon)
+            _buildWebtoonScheduleFromDays(context),
 
           // ── 게임: 작품 정보 ──
           if (isGame && widget.gameData != null)
             _buildGameInfoSection(context, widget.gameData!),
 
           // ── 출시 정보 (게임) ──
-          if (isGame && calendarEvents != null)
-            _buildGameEventsSection(context, calendarEvents),
+          if (isGame)
+            _buildGameReleaseSection(context),
         ],
       ),
     );
@@ -643,8 +640,40 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
     );
   }
 
-  Widget _buildWebtoonSection(
-      BuildContext context, AsyncValue<List<CalendarEvent>> events) {
+  /// updateDays 패턴(MON, TUE 등)에서 향후 4주간 연재 일정 생성
+  Widget _buildWebtoonScheduleFromDays(BuildContext context) {
+    // WebtoonData가 있으면 그쪽 updateDays 사용, 없으면 FollowedWork의 updateDays
+    final updateDays = widget.webtoonData?.updateDays ?? widget.work.updateDays;
+
+    const dayToWeekday = {
+      'MON': DateTime.monday,
+      'TUE': DateTime.tuesday,
+      'WED': DateTime.wednesday,
+      'THU': DateTime.thursday,
+      'FRI': DateTime.friday,
+      'SAT': DateTime.saturday,
+      'SUN': DateTime.sunday,
+    };
+
+    // 향후 4주간 날짜 생성
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dates = <DateTime>[];
+
+    for (final day in updateDays) {
+      final weekday = dayToWeekday[day];
+      if (weekday == null) continue;
+      var date = today;
+      while (date.weekday != weekday) {
+        date = date.add(const Duration(days: 1));
+      }
+      for (int week = 0; week < 4; week++) {
+        final target = date.add(Duration(days: week * 7));
+        dates.add(target);
+      }
+    }
+    dates.sort();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -656,135 +685,125 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
               const SizedBox(width: 8),
               Text('연재 일정',
                   style: Theme.of(context).textTheme.titleSmall),
+              const Spacer(),
+              if (dates.isNotEmpty)
+                Text(
+                  '${dates.length}개',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: DuckColors.textSub),
+                ),
             ],
           ),
         ),
-        events.when(
-          data: (eventList) {
-            if (eventList.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: DuckEmptyState(
-                  message: '등록된 연재 일정이 없어요.',
-                  icon: PhosphorIconsBold.bookOpen,
-                ),
-              );
+        if (dates.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: DuckEmptyState(
+              message: '연재 요일 정보가 없어요.',
+              icon: PhosphorIconsBold.bookOpen,
+            ),
+          )
+        else
+          ...dates.map((date) {
+            final diff =
+                date.difference(today);
+            final daysLeft = diff.inDays;
+
+            String timeLabel;
+            if (daysLeft == 0) {
+              timeLabel = '오늘!';
+            } else if (daysLeft == 1) {
+              timeLabel = '내일';
+            } else if (daysLeft < 7) {
+              timeLabel = '$daysLeft일 후';
+            } else {
+              timeLabel = '${(daysLeft / 7).floor()}주 후';
             }
 
-            return Column(
-              children: eventList.map((event) {
-                final date = event.eventDate;
-                final now = DateTime.now();
-                final diff = date.difference(DateTime(now.year, now.month, now.day));
-                final daysLeft = diff.inDays;
-
-                String timeLabel;
-                if (daysLeft < 0) {
-                  timeLabel = '업데이트됨';
-                } else if (daysLeft == 0) {
-                  timeLabel = '오늘!';
-                } else if (daysLeft == 1) {
-                  timeLabel = '내일';
-                } else if (daysLeft < 7) {
-                  timeLabel = '$daysLeft일 후';
-                } else {
-                  timeLabel = '${(daysLeft / 7).floor()}주 후';
-                }
-
-                return DuckCard(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: DuckColors.webtoonLight,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '${date.month}/${date.day}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              Formatters.weekday(date),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: DuckColors.textSub,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '업데이트',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              Formatters.date(date),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: DuckColors.textSub),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: daysLeft <= 1 && daysLeft >= 0
-                              ? DuckColors.webtoon.withValues(alpha: 0.2)
-                              : DuckColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          timeLabel,
-                          style: TextStyle(
-                            fontSize: 12,
+            return DuckCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: DuckColors.webtoonLight,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${date.month}/${date.day}',
+                          style: const TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: daysLeft <= 1 && daysLeft >= 0
-                                ? DuckColors.webtoon
-                                : DuckColors.textSub,
                           ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          Formatters.weekday(date),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: DuckColors.textSub,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '업데이트',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          Formatters.date(date),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: DuckColors.textSub),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: daysLeft <= 1
+                          ? DuckColors.webtoon.withValues(alpha: 0.2)
+                          : DuckColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      timeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: daysLeft <= 1
+                            ? DuckColors.webtoon
+                            : DuckColors.textSub,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
-          },
-          loading: () => const Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, _) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: DuckEmptyState(
-              message: '연재 정보를 불러올 수 없어요.\n$e',
-              icon: PhosphorIconsBold.warning,
-            ),
-          ),
-        ),
+          }),
       ],
     );
   }
 
-  Widget _buildGameEventsSection(
-      BuildContext context, AsyncValue<List<CalendarEvent>> events) {
+  /// gameData의 releaseDate를 직접 사용하여 출시 일정 표시
+  Widget _buildGameReleaseSection(BuildContext context) {
+    final releaseDate = widget.gameData?.releaseDate;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -799,131 +818,110 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
             ],
           ),
         ),
-        events.when(
-          data: (eventList) {
-            if (eventList.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: DuckEmptyState(
-                  message: '등록된 출시 일정이 없어요.',
-                  icon: PhosphorIconsBold.gameController,
-                ),
-              );
+        if (releaseDate == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: DuckEmptyState(
+              message: '출시일 정보가 없어요.',
+              icon: PhosphorIconsBold.gameController,
+            ),
+          )
+        else
+          Builder(builder: (context) {
+            final now = DateTime.now();
+            final today = DateTime(now.year, now.month, now.day);
+            final diff = releaseDate.difference(today);
+            final daysLeft = diff.inDays;
+
+            String timeLabel;
+            if (daysLeft < 0) {
+              timeLabel = '출시됨';
+            } else if (daysLeft == 0) {
+              timeLabel = '오늘 출시!';
+            } else if (daysLeft == 1) {
+              timeLabel = '내일';
+            } else if (daysLeft < 7) {
+              timeLabel = '$daysLeft일 후';
+            } else if (daysLeft < 30) {
+              timeLabel = '${(daysLeft / 7).floor()}주 후';
+            } else {
+              timeLabel = '${(daysLeft / 30).floor()}개월 후';
             }
 
-            return Column(
-              children: eventList.map((event) {
-                final date = event.eventDate;
-                final now = DateTime.now();
-                final diff = date.difference(DateTime(now.year, now.month, now.day));
-                final daysLeft = diff.inDays;
-
-                String timeLabel;
-                if (daysLeft < 0) {
-                  timeLabel = '출시됨';
-                } else if (daysLeft == 0) {
-                  timeLabel = '오늘 출시!';
-                } else if (daysLeft == 1) {
-                  timeLabel = '내일';
-                } else if (daysLeft < 7) {
-                  timeLabel = '$daysLeft일 후';
-                } else if (daysLeft < 30) {
-                  timeLabel = '${(daysLeft / 7).floor()}주 후';
-                } else {
-                  timeLabel = '${(daysLeft / 30).floor()}개월 후';
-                }
-
-                return DuckCard(
-                  child: Row(
-                    children: [
-                      // 날짜 박스
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: DuckColors.accentLight,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '${date.month}/${date.day}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              Formatters.weekday(date),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: DuckColors.textSub,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // 이벤트 정보
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              event.eventType == 'release' ? '출시일' : event.displayTitle,
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              Formatters.date(date),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: DuckColors.textSub),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // D-day 라벨
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: daysLeft <= 1 && daysLeft >= 0
-                              ? DuckColors.accent.withValues(alpha: 0.2)
-                              : DuckColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          timeLabel,
-                          style: TextStyle(
-                            fontSize: 12,
+            return DuckCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: DuckColors.accentLight,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${releaseDate.month}/${releaseDate.day}',
+                          style: const TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: daysLeft <= 1 && daysLeft >= 0
-                                ? DuckColors.accent
-                                : DuckColors.textSub,
                           ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          Formatters.weekday(releaseDate),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: DuckColors.textSub,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '출시일',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          Formatters.date(releaseDate),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: DuckColors.textSub),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: daysLeft <= 1 && daysLeft >= 0
+                          ? DuckColors.accent.withValues(alpha: 0.2)
+                          : DuckColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      timeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: daysLeft <= 1 && daysLeft >= 0
+                            ? DuckColors.accent
+                            : DuckColors.textSub,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
-          },
-          loading: () => const Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, _) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: DuckEmptyState(
-              message: '출시 정보를 불러올 수 없어요.\n$e',
-              icon: PhosphorIconsBold.warning,
-            ),
-          ),
-        ),
+          }),
       ],
     );
   }

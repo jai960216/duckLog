@@ -6,20 +6,17 @@ import '../../../shared/models/catalog_item.dart';
 class CatalogItemTile extends StatelessWidget {
   final CatalogItem item;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
 
   const CatalogItemTile({
     super.key,
     required this.item,
     this.onTap,
-    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: Container(
         decoration: BoxDecoration(
           color: DuckColors.background,

@@ -6,6 +6,7 @@ class FollowedWork {
   final String title;
   final String? coverUrl;
   final bool notify;
+  final List<String> updateDays; // 웹툰 연재 요일 (MON, TUE, ...)
 
   const FollowedWork({
     required this.id,
@@ -15,6 +16,7 @@ class FollowedWork {
     required this.title,
     this.coverUrl,
     this.notify = true,
+    this.updateDays = const [],
   });
 
   factory FollowedWork.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,9 @@ class FollowedWork {
       title: json['title'] as String,
       coverUrl: json['cover_url'] as String?,
       notify: json['notify'] as bool? ?? true,
+      updateDays: json['update_days'] != null
+          ? List<String>.from(json['update_days'] as List)
+          : [],
     );
   }
 
@@ -37,6 +42,7 @@ class FollowedWork {
       'title': title,
       'cover_url': coverUrl,
       'notify': notify,
+      if (updateDays.isNotEmpty) 'update_days': updateDays,
     };
   }
 }

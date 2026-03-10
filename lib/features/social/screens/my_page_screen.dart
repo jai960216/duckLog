@@ -205,7 +205,7 @@ class MyPageScreen extends ConsumerWidget {
           _menuItem(
             context,
             icon: PhosphorIconsBold.arrowSquareOut,
-            label: '데이터 내보내기',
+            label: '지출통계 내보내기',
             onTap: () => _exportData(context, ref),
           ),
         ]),
@@ -467,7 +467,7 @@ class MyPageScreen extends ConsumerWidget {
 
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: '덕로그 데이터 내보내기',
+        text: '덕로그 지출통계 내보내기',
       );
     } catch (e) {
       navigator.pop(); // dismiss loading

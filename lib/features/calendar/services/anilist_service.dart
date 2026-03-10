@@ -358,32 +358,63 @@ query ($mediaId: Int) {
 
   // -- Internal helpers --
 
+  /// 마지막 요청 시각 (rate limit 방지)
+  DateTime? _lastRequest;
+
+  Future<void> _throttle() async {
+    if (_lastRequest != null) {
+      final elapsed = DateTime.now().difference(_lastRequest!);
+      if (elapsed.inMilliseconds < 700) {
+        await Future.delayed(
+            Duration(milliseconds: 700 - elapsed.inMilliseconds));
+      }
+    }
+    _lastRequest = DateTime.now();
+  }
+
   Future<Map<String, dynamic>> _post(
       String query, Map<String, dynamic> variables) async {
-    final response = await http.post(
-      Uri.parse(_endpoint),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'query': query, 'variables': variables}),
-    ).timeout(_httpTimeout);
+    const maxRetries = 3;
 
-    if (response.statusCode != 200) {
-      throw Exception('AniList API error: ${response.statusCode}');
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      await _throttle();
+
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'query': query, 'variables': variables}),
+      ).timeout(_httpTimeout);
+
+      // 429 Too Many Requests → Retry-After 헤더 또는 지수 백오프
+      if (response.statusCode == 429) {
+        final retryAfter = int.tryParse(
+                response.headers['retry-after'] ?? '') ??
+            (2 * (attempt + 1));
+        await Future.delayed(Duration(seconds: retryAfter));
+        continue;
+      }
+
+      if (response.statusCode != 200) {
+        throw Exception('AniList API error: ${response.statusCode}');
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // GraphQL은 HTTP 200이어도 errors 필드에 에러를 담아 반환
+      final errors = json['errors'] as List<dynamic>?;
+      if (errors != null && errors.isNotEmpty) {
+        final firstMsg =
+            (errors.first as Map<String, dynamic>)['message'] ?? 'Unknown error';
+        throw Exception('AniList: $firstMsg');
+      }
+
+      return json;
     }
 
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-
-    // GraphQL은 HTTP 200이어도 errors 필드에 에러를 담아 반환
-    final errors = json['errors'] as List<dynamic>?;
-    if (errors != null && errors.isNotEmpty) {
-      final firstMsg =
-          (errors.first as Map<String, dynamic>)['message'] ?? 'Unknown error';
-      throw Exception('AniList: $firstMsg');
-    }
-
-    return json;
+    throw Exception('AniList API: 요청 한도 초과. 잠시 후 다시 시도해주세요.');
   }
 
   Future<List<AnilistMedia>> _fetchMediaList(

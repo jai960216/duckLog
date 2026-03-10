@@ -225,20 +225,50 @@ query ($mediaId: Int, $page: Int) {
         false;
   }
 
+  DateTime? _lastRequest;
+
+  Future<void> _throttle() async {
+    if (_lastRequest != null) {
+      final elapsed = DateTime.now().difference(_lastRequest!);
+      if (elapsed.inMilliseconds < 700) {
+        await Future.delayed(
+            Duration(milliseconds: 700 - elapsed.inMilliseconds));
+      }
+    }
+    _lastRequest = DateTime.now();
+  }
+
   Future<Map<String, dynamic>> _post(
       String query, Map<String, dynamic> variables) async {
-    final response = await http.post(
-      Uri.parse(_endpoint),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'query': query, 'variables': variables}),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('AniList API 오류: ${response.statusCode}');
+    const maxRetries = 3;
+
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      await _throttle();
+
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'query': query, 'variables': variables}),
+      );
+
+      if (response.statusCode == 429) {
+        final retryAfter = int.tryParse(
+                response.headers['retry-after'] ?? '') ??
+            (2 * (attempt + 1));
+        await Future.delayed(Duration(seconds: retryAfter));
+        continue;
+      }
+
+      if (response.statusCode != 200) {
+        throw Exception('AniList API 오류: ${response.statusCode}');
+      }
+      return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+
+    throw Exception('AniList API: 요청 한도 초과. 잠시 후 다시 시도해주세요.');
   }
 }
 
