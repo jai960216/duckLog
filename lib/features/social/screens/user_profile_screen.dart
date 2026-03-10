@@ -55,7 +55,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                         color: DuckColors.surface,
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: DuckColors.outline, width: 2),
+                            color: DuckColors.textLight, width: 1.5),
                       ),
                       child: profile.avatarUrl != null
                           ? ClipOval(
@@ -104,6 +104,44 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                             ),
                         textAlign: TextAlign.center,
                       ),
+                    ],
+                    // SNS 링크
+                    if (profile.snsLinks.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      if (profile.snsLinks['instagram'] != null &&
+                          profile.snsLinks['instagram']!.isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(PhosphorIconsBold.instagramLogo,
+                                size: 14, color: DuckColors.textSub),
+                            const SizedBox(width: 4),
+                            Text(
+                              profile.snsLinks['instagram']!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: DuckColors.textSub,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      if (profile.snsLinks['twitter'] != null &&
+                          profile.snsLinks['twitter']!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(PhosphorIconsBold.xLogo,
+                                size: 14, color: DuckColors.textSub),
+                            const SizedBox(width: 4),
+                            Text(
+                              profile.snsLinks['twitter']!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: DuckColors.textSub,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -472,4 +510,5 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       ),
     );
   }
+
 }
