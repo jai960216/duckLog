@@ -27,11 +27,12 @@ class DuckTheme {
         foregroundColor: DuckColors.text,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         titleTextStyle: TextStyle(
           color: DuckColors.text,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
         ),
       ),
 
@@ -40,13 +41,9 @@ class DuckTheme {
         color: DuckColors.background,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(
-            color: DuckColors.surface,
-            width: 2,
-          ),
+          borderRadius: BorderRadius.circular(16),
         ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       ),
 
       // Elevated Button (Primary)
@@ -57,11 +54,12 @@ class DuckTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(12),
           ),
           textStyle: const TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
           ),
         ),
       ),
@@ -72,15 +70,16 @@ class DuckTheme {
           foregroundColor: DuckColors.text,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(12),
           ),
           side: const BorderSide(
-            color: DuckColors.outline,
-            width: 2,
+            color: DuckColors.surface,
+            width: 1.5,
           ),
           textStyle: const TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
           ),
         ),
       ),
@@ -101,30 +100,27 @@ class DuckTheme {
         filled: true,
         fillColor: DuckColors.surface,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: DuckColors.surface,
-            width: 2,
-          ),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
             color: DuckColors.primary,
-            width: 2,
+            width: 1.5,
           ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
             color: DuckColors.error,
-            width: 2,
+            width: 1.5,
           ),
         ),
         hintStyle: const TextStyle(
@@ -136,15 +132,15 @@ class DuckTheme {
       // Chip
       chipTheme: ChipThemeData(
         backgroundColor: DuckColors.surface,
-        selectedColor: DuckColors.primaryLight,
+        selectedColor: DuckColors.primarySurface,
         labelStyle: const TextStyle(
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
           color: DuckColors.text,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(8),
         ),
         side: BorderSide.none,
       ),
@@ -153,32 +149,35 @@ class DuckTheme {
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: DuckColors.background,
         selectedItemColor: DuckColors.primary,
-        unselectedItemColor: DuckColors.textSub,
+        unselectedItemColor: DuckColors.textLight,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
         selectedLabelStyle: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
         ),
         unselectedLabelStyle: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w400,
         ),
       ),
 
       // FAB
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: DuckColors.primary,
-        foregroundColor: DuckColors.outline,
-        elevation: 4,
-        shape: CircleBorder(),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: DuckColors.text,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
       ),
 
       // Bottom Sheet
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: DuckColors.background,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
 
@@ -186,7 +185,7 @@ class DuckTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: DuckColors.background,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
 
@@ -203,41 +202,49 @@ class DuckTheme {
           fontSize: 28,
           fontWeight: FontWeight.w700,
           color: DuckColors.text,
+          letterSpacing: -0.5,
         ),
         headlineMedium: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: DuckColors.text,
+          letterSpacing: -0.5,
         ),
         headlineSmall: TextStyle(
           fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: DuckColors.text,
+          letterSpacing: -0.3,
         ),
         titleLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: DuckColors.text,
+          letterSpacing: -0.3,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: DuckColors.text,
+          letterSpacing: -0.2,
         ),
         titleSmall: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: DuckColors.text,
+          letterSpacing: -0.2,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: DuckColors.text,
+          letterSpacing: -0.1,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: DuckColors.text,
+          letterSpacing: -0.1,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
@@ -256,7 +263,7 @@ class DuckTheme {
         ),
         labelSmall: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
           color: DuckColors.textSub,
         ),
       ),

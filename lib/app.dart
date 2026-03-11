@@ -15,32 +15,29 @@ class _SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: DuckColors.background,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: DuckColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: DuckColors.outline, width: 3),
-              ),
-              child: const Center(
-                child: Text('\u{1F425}', style: TextStyle(fontSize: 48)),
-              ),
-            ),
-            const SizedBox(height: 24),
+            const Text('\u{1F425}', style: TextStyle(fontSize: 56)),
+            const SizedBox(height: 16),
             Text(
               'DuckLog',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
+                    letterSpacing: -1,
                   ),
             ),
             const SizedBox(height: 24),
-            const CircularProgressIndicator(color: DuckColors.primary),
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                color: DuckColors.primary,
+                strokeWidth: 2.5,
+              ),
+            ),
           ],
         ),
       ),

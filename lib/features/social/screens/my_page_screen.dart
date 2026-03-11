@@ -55,21 +55,19 @@ class MyPageScreen extends ConsumerWidget {
                     children: [
                       // Avatar
                       Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
+                        width: 56,
+                        height: 56,
+                        decoration: const BoxDecoration(
                           color: DuckColors.surface,
                           shape: BoxShape.circle,
-                          border:
-                              Border.all(color: DuckColors.outline, width: 2),
                         ),
                         child: profile.avatarUrl != null
                             ? ClipOval(
                                 child: Image.network(
                                   profile.avatarUrl!,
                                   fit: BoxFit.cover,
-                                  width: 64,
-                                  height: 64,
+                                  width: 56,
+                                  height: 56,
                                   errorBuilder: (_, __, ___) => const Center(
                                     child: Text('🐥',
                                         style: TextStyle(fontSize: 28)),
@@ -116,15 +114,15 @@ class MyPageScreen extends ConsumerWidget {
                   child: Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: DuckColors.primary.withValues(alpha: 0.15),
+                          color: DuckColors.primarySurface,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Center(
                           child: Icon(PhosphorIconsBold.identificationBadge,
-                              size: 20, color: DuckColors.primary),
+                              size: 18, color: DuckColors.primaryDark),
                         ),
                       ),
                       const SizedBox(width: 12),

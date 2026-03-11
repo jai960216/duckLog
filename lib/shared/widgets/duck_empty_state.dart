@@ -20,38 +20,26 @@ class DuckEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Duck question mark placeholder
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: DuckColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: DuckColors.outline.withValues(alpha: 0.1),
-                  width: 2,
-                ),
-              ),
-              child: Icon(
-                icon ?? PhosphorIconsBold.question,
-                size: 48,
-                color: DuckColors.textSub,
-              ),
+            Icon(
+              icon ?? PhosphorIconsBold.question,
+              size: 48,
+              color: DuckColors.textLight,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: DuckColors.textSub,
+                    height: 1.5,
                   ),
             ),
             if (actionText != null && onAction != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: onAction,
                 child: Text(actionText!),

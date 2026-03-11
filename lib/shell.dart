@@ -396,13 +396,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 : _showAddBottomSheet,
         child: const Icon(PhosphorIconsBold.plus, size: 24),
       ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: DuckColors.surface, width: 1),
-          ),
-        ),
-        child: BottomNavigationBar(
+      bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
           type: BottomNavigationBarType.fixed,
@@ -438,7 +432,6 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: '마이',
             ),
           ],
-        ),
       ),
     );
   }

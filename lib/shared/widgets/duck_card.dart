@@ -16,25 +16,22 @@ class DuckCard extends StatelessWidget {
     this.margin,
     this.onTap,
     this.color,
-    this.borderRadius = 20,
+    this.borderRadius = 16,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       decoration: BoxDecoration(
         color: color ?? DuckColors.background,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: DuckColors.surface,
-          width: 2,
-        ),
         boxShadow: const [
           BoxShadow(
             color: DuckColors.shadow,
-            blurRadius: 8,
+            blurRadius: 12,
             offset: Offset(0, 2),
+            spreadRadius: 0,
           ),
         ],
       ),

@@ -60,43 +60,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 const SizedBox(height: 60),
 
-                // Duck mascot area
-                Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    color: DuckColors.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: DuckColors.outline,
-                      width: 3,
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '\u{1F425}',
-                      style: TextStyle(fontSize: 64),
-                    ),
-                  ),
+                // Duck mascot
+                const Text(
+                  '\u{1F425}',
+                  style: TextStyle(fontSize: 80),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // App name
                 Text(
                   'DuckLog',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
                       ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   '내 덕질을 기록한다',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: DuckColors.textSub,
                       ),
                 ),
 
-                const SizedBox(height: 48),
+                const SizedBox(height: 56),
 
                 // Login buttons
                 if (_isLoading)
@@ -111,35 +98,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: _signInWithKakao,
-                      icon: const Icon(PhosphorIconsBold.chatCircle, size: 20),
+                      icon: const Icon(PhosphorIconsBold.chatCircle, size: 18),
                       label: const Text('카카오로 시작하기'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFEE500),
                         foregroundColor: const Color(0xFF191919),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(14),
                         ),
+                        elevation: 0,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
                   // Google Login
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _signInWithGoogle,
-                      icon: const Icon(PhosphorIconsBold.googleLogo, size: 20),
+                      icon: const Icon(PhosphorIconsBold.googleLogo, size: 18),
                       label: const Text('Google로 시작하기'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         side: const BorderSide(
-                          color: DuckColors.outline,
-                          width: 2,
+                          color: DuckColors.surface,
+                          width: 1.5,
                         ),
                       ),
                     ),

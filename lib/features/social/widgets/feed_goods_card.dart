@@ -165,12 +165,11 @@ class FeedGoodsCard extends StatelessWidget {
 
   Widget _avatar() {
     return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(
         color: DuckColors.surface,
         shape: BoxShape.circle,
-        border: Border.all(color: DuckColors.outline, width: 1.5),
       ),
       child: owner.avatarUrl != null
           ? ClipOval(

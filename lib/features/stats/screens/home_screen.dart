@@ -114,15 +114,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               GestureDetector(
                 onTap: widget.onNavigateToMyPage,
                 child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: DuckColors.primaryLight,
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: DuckColors.primarySurface,
                     shape: BoxShape.circle,
-                    border: Border.all(color: DuckColors.outline, width: 2),
                   ),
                   child: const Center(
-                    child: Text('🐥', style: TextStyle(fontSize: 24)),
+                    child: Text('🐥', style: TextStyle(fontSize: 22)),
                   ),
                 ),
               ),
@@ -133,7 +132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // Monthly summary card → tap to goods list
         DuckCard(
-          color: DuckColors.primary.withValues(alpha: 0.1),
+          color: DuckColors.primarySurface,
           onTap: () {
             Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => GoodsListScreen(

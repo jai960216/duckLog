@@ -43,14 +43,14 @@ class DuckSnackBar {
       DuckSnackBarType.info => (
           PhosphorIconsBold.info,
           DuckColors.primaryDark,
-          const Color(0xFFFFF9EC),
+          DuckColors.primarySurface,
         ),
     };
 
     return SnackBar(
       content: Row(
         children: [
-          Icon(icon, size: 20, color: iconColor),
+          Icon(icon, size: 18, color: iconColor),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -67,10 +67,9 @@ class DuckSnackBar {
       backgroundColor: bgColor,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: iconColor.withValues(alpha: 0.3), width: 1),
+        borderRadius: BorderRadius.circular(12),
       ),
-      elevation: 4,
+      elevation: 2,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       duration: const Duration(seconds: 3),
       dismissDirection: DismissDirection.horizontal,
