@@ -443,8 +443,9 @@ class _ReceiptListScreenState extends ConsumerState<ReceiptListScreen> {
                           ref.invalidate(receiptListProvider);
                           if (context.mounted) Navigator.pop(context);
                         } catch (e) {
+                          debugPrint('삭제 실패: $e');
                           if (context.mounted) {
-                            DuckSnackBar.error(context, '삭제 실패: $e');
+                            DuckSnackBar.error(context, '삭제 실패');
                           }
                         }
                       }

@@ -144,11 +144,12 @@ class IgdbService {
     _tokenCompleter = Completer<String>();
     try {
       final response = await http.post(
-        Uri.parse(
-          '$_tokenEndpoint?client_id=${IgdbConfig.clientId}'
-          '&client_secret=${IgdbConfig.clientSecret}'
-          '&grant_type=client_credentials',
-        ),
+        Uri.parse(_tokenEndpoint),
+        body: {
+          'client_id': IgdbConfig.clientId,
+          'client_secret': IgdbConfig.clientSecret,
+          'grant_type': 'client_credentials',
+        },
       ).timeout(_httpTimeout);
 
       if (response.statusCode != 200) {

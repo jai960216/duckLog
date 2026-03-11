@@ -119,8 +119,9 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
         }
       }
     } catch (e) {
+      debugPrint('저장에 실패했어요: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '저장에 실패했어요: $e');
+        DuckSnackBar.error(context, '저장에 실패했어요');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

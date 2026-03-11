@@ -19,6 +19,9 @@ void main() async {
     ),
   );
 
+  assert(SupabaseConfig.isConfigured,
+      'SUPABASE_URL and SUPABASE_ANON_KEY must be set via --dart-define-from-file');
+
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,

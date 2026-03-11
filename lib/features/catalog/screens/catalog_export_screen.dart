@@ -96,8 +96,9 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
         });
       }
     } catch (e) {
+      debugPrint('데이터를 불러올 수 없어요: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '데이터를 불러올 수 없어요: $e');
+        DuckSnackBar.error(context, '데이터를 불러올 수 없어요');
         Navigator.pop(context);
       }
     }
@@ -124,8 +125,9 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
 
       await Share.shareXFiles([XFile(file.path)]);
     } catch (e) {
+      debugPrint('내보내기에 실패했어요: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '내보내기에 실패했어요: $e');
+        DuckSnackBar.error(context, '내보내기에 실패했어요');
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);

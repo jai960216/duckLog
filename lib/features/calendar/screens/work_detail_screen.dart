@@ -58,8 +58,9 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
       ref.invalidate(followedWorksProvider);
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      debugPrint('해제 실패: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '해제 실패: $e');
+        DuckSnackBar.error(context, '해제 실패');
       }
     }
   }

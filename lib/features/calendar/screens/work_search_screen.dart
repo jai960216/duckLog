@@ -97,7 +97,8 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
     } catch (e) {
       if (!mounted || gen != _searchGeneration) return;
       setState(() => _isSearching = false);
-      DuckSnackBar.error(context, '검색 실패: $e');
+      debugPrint('검색 실패: $e');
+      DuckSnackBar.error(context, '검색 실패');
     }
   }
 
@@ -143,8 +144,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
+      debugPrint('추가 실패: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '추가 실패: $e');
+        DuckSnackBar.error(context, '추가 실패');
       }
     } finally {
       if (mounted) setState(() => _followingId = null);
@@ -177,8 +179,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
+      debugPrint('추가 실패: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '추가 실패: $e');
+        DuckSnackBar.error(context, '추가 실패');
       }
     } finally {
       if (mounted) setState(() => _followingId = null);
@@ -218,8 +221,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
+      debugPrint('추가 실패: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '추가 실패: $e');
+        DuckSnackBar.error(context, '추가 실패');
       }
     } finally {
       if (mounted) setState(() => _followingWebtoonId = null);
@@ -265,8 +269,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
+      debugPrint('추가 실패: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '추가 실패: $e');
+        DuckSnackBar.error(context, '추가 실패');
       }
     } finally {
       if (mounted) setState(() => _followingId = null);
@@ -297,8 +302,9 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       await service.unfollowWork(id);
       ref.invalidate(followedWorksProvider);
     } catch (e) {
+      debugPrint('해제 실패: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '해제 실패: $e');
+        DuckSnackBar.error(context, '해제 실패');
       }
     }
   }

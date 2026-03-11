@@ -247,7 +247,8 @@ class _FriendSearchSheetState extends ConsumerState<_FriendSearchSheet> {
             _relationshipStatus = 'pending_sent';
           }
         });
-        DuckSnackBar.error(context, '$e');
+        debugPrint('친구 요청 실패: $e');
+        DuckSnackBar.error(context, '요청에 실패했어요');
       }
     }
   }
@@ -557,7 +558,8 @@ class _FriendsTabState extends ConsumerState<_FriendsTab> {
                 ref.invalidate(friendsProvider);
                 ref.invalidate(pendingCountProvider);
               } catch (e) {
-                if (mounted) DuckSnackBar.error(context, '삭제 실패: $e');
+                debugPrint('삭제 실패: $e');
+                if (mounted) DuckSnackBar.error(context, '삭제 실패');
               } finally {
                 if (mounted) setState(() => _busy = false);
               }
@@ -655,7 +657,8 @@ class _ReceivedRequestsTabState extends ConsumerState<_ReceivedRequestsTab> {
       ref.invalidate(friendsProvider);
       ref.invalidate(pendingCountProvider);
     } catch (e) {
-      if (mounted) DuckSnackBar.error(context, '수락 실패: $e');
+      debugPrint('수락 실패: $e');
+      if (mounted) DuckSnackBar.error(context, '수락 실패');
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -668,7 +671,8 @@ class _ReceivedRequestsTabState extends ConsumerState<_ReceivedRequestsTab> {
       ref.invalidate(receivedRequestsProvider);
       ref.invalidate(pendingCountProvider);
     } catch (e) {
-      if (mounted) DuckSnackBar.error(context, '거절 실패: $e');
+      debugPrint('거절 실패: $e');
+      if (mounted) DuckSnackBar.error(context, '거절 실패');
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -746,7 +750,8 @@ class _SentRequestsTabState extends ConsumerState<_SentRequestsTab> {
       await ref.read(friendServiceProvider).removeFriendship(id);
       ref.invalidate(sentRequestsProvider);
     } catch (e) {
-      if (mounted) DuckSnackBar.error(context, '취소 실패: $e');
+      debugPrint('취소 실패: $e');
+      if (mounted) DuckSnackBar.error(context, '취소 실패');
     } finally {
       if (mounted) setState(() => _busyId = null);
     }

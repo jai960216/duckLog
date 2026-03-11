@@ -229,8 +229,9 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       }
       _invalidateAll();
     } catch (e) {
+      debugPrint('업로드에 실패했어요: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '업로드에 실패했어요: $e');
+        DuckSnackBar.error(context, '업로드에 실패했어요');
       }
     } finally {
       _isPicking = false;
@@ -1118,8 +1119,9 @@ class _CharacterCatalogEditScreenState
 
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
+      debugPrint('수정에 실패했어요: $e');
       if (mounted) {
-        DuckSnackBar.error(context, '수정에 실패했어요: $e');
+        DuckSnackBar.error(context, '수정에 실패했어요');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

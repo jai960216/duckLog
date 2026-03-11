@@ -49,7 +49,7 @@ class PokemonTcgService {
   }
 
   Future<List<TcgCard>> searchCards(String query) async {
-    final uri = Uri.parse('$_baseUrl/en/cards?name=$query');
+    final uri = Uri.parse('$_baseUrl/en/cards?name=${Uri.encodeComponent(query)}');
     final response = await http.get(uri).timeout(_httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('카드 검색 오류: ${response.statusCode}');
