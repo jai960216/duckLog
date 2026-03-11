@@ -32,6 +32,11 @@ dependencies:
   image_picker: ^1.1.2
   flutter_image_compress: ^2.4.0
 
+  # Firebase
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.6
+  flutter_local_notifications: ^18.0.1
+
   # Local Storage
   hive_flutter: ^1.1.0
 

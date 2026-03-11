@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../services/fcm_service.dart';
 import '../../../shared/widgets/widgets.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
@@ -46,6 +47,7 @@ class _NotificationSettingsScreenState
 
   Future<void> _save(String key, bool value) async {
     await _prefsBox.put(key, value);
+    await FcmService.instance.updateTopic(key, value);
   }
 
   @override

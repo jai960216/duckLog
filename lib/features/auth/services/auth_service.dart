@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/google_auth_config.dart';
+import '../../../services/fcm_service.dart';
 import '../../../shared/models/profile.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -203,6 +204,7 @@ class AuthService {
 
   // Sign out
   Future<void> signOut() async {
+    await FcmService.instance.clearToken();
     await _client.auth.signOut();
   }
 
@@ -212,6 +214,9 @@ class AuthService {
     if (user == null) return;
 
     final userId = user.id;
+
+    // 0. FCM 토큰 정리
+    await FcmService.instance.clearToken();
 
     // 1. Storage 파일 정리
     await _deleteStorageFiles(userId);

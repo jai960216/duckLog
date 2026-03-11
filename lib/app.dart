@@ -6,6 +6,7 @@ import 'config/theme.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/onboarding_screen.dart';
 import 'features/auth/services/auth_service.dart';
+import 'services/fcm_service.dart';
 import 'shell.dart';
 
 class _SplashScreen extends StatelessWidget {
@@ -83,11 +84,24 @@ class AuthGate extends ConsumerWidget {
   }
 }
 
-class _ProfileGate extends ConsumerWidget {
+class _ProfileGate extends ConsumerStatefulWidget {
   const _ProfileGate();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ProfileGate> createState() => _ProfileGateState();
+}
+
+class _ProfileGateState extends ConsumerState<_ProfileGate> {
+  bool _fcmInitialized = false;
+
+  void _initFcm() {
+    if (_fcmInitialized) return;
+    _fcmInitialized = true;
+    FcmService.instance.initialize();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(currentProfileProvider);
 
     return profileAsync.when(
@@ -95,6 +109,7 @@ class _ProfileGate extends ConsumerWidget {
         if (profile == null) {
           return const OnboardingScreen();
         }
+        _initFcm();
         return const AppShell();
       },
       loading: () => const _SplashScreen(),
