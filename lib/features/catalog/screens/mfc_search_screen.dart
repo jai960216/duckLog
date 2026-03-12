@@ -89,7 +89,6 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
         );
       }
     } catch (e) {
-      debugPrint('도감 생성에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '도감 생성에 실패했어요');
       }

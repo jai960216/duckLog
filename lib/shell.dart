@@ -357,7 +357,6 @@ class _AppShellState extends ConsumerState<AppShell> {
           DuckSnackBar.success(context, '일정이 추가되었어요.');
         }
       } catch (e) {
-        debugPrint('일정 추가 실패: $e');
         if (mounted) {
           DuckSnackBar.error(context, '일정 추가 실패');
         }

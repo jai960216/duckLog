@@ -213,7 +213,6 @@ class CatalogService {
           .select()
           .eq('catalog_id', catalogId)
           .order('sort_order', ascending: true);
-      debugPrint('[DB] getCharacters raw: ${(response as List).map((r) => '${r['name']}(sort=${r['sort_order']})').toList()}');
       final chars = (response as List)
           .map((row) => CatalogCharacter.fromJson(row))
           .toList();
@@ -234,7 +233,6 @@ class CatalogService {
         .eq('id', id)
         .select()
         .single();
-    debugPrint('[DB] updateCharacter($id) → sort_order=${response['sort_order']}, name=${response['name']}');
     return CatalogCharacter.fromJson(response);
   }
 

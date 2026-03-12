@@ -433,7 +433,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       ref.invalidate(receivedRequestsProvider);
       ref.invalidate(pendingCountProvider);
     } catch (e) {
-      debugPrint('요청 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '요청 실패');
       }
@@ -474,7 +473,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     try {
       await action();
     } catch (e) {
-      debugPrint('처리 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '처리 실패');
       }

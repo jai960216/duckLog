@@ -258,10 +258,8 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
       if (_linkedCatalogItemId != null && _linkedCatalogId != null) {
         try {
           final catalogService = ref.read(catalogServiceProvider);
-          debugPrint('[GOODS] collectItem: catalogId=$_linkedCatalogId, itemId=$_linkedCatalogItemId');
           await catalogService.collectItem(
               _linkedCatalogId!, _linkedCatalogItemId!);
-          debugPrint('[GOODS] collectItem success');
           // Sync photo if goods has photos
           if (allPhotoUrls.isNotEmpty) {
             await catalogService.updateItemPhotoIfEmpty(
@@ -270,7 +268,6 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
           // Invalidate catalog providers so progress updates
           ref.invalidate(myCatalogsProvider);
         } catch (e) {
-          debugPrint('[GOODS] collectItem FAILED: $e');
         }
       }
 
@@ -278,7 +275,6 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
-      debugPrint('저장에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '저장에 실패했어요');
       }

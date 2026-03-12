@@ -13,12 +13,8 @@ final goodsServiceProvider = Provider<GoodsService>((ref) {
 final goodsListProvider =
     FutureProvider.autoDispose.family<List<Goods>, GoodsFilter>(
   (ref, filter) async {
-    try {
-      final service = ref.read(goodsServiceProvider);
-      return await service.getGoods(filter: filter);
-    } catch (e) {
-      return [];
-    }
+    final service = ref.read(goodsServiceProvider);
+    return await service.getGoods(filter: filter);
   },
 );
 
@@ -46,14 +42,10 @@ class MonthlyStats {
 final monthlyStatsProvider =
     FutureProvider.autoDispose.family<MonthlyStats, String>(
   (ref, monthKey) async {
-    try {
-      final parts = monthKey.split('-');
-      final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-      final service = ref.read(goodsServiceProvider);
-      return await service.getMonthlyStats(month);
-    } catch (e) {
-      return const MonthlyStats(goodsCount: 0, categoryCount: 0, workTagCount: 0);
-    }
+    final parts = monthKey.split('-');
+    final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    final service = ref.read(goodsServiceProvider);
+    return await service.getMonthlyStats(month);
   },
 );
 
@@ -61,14 +53,10 @@ final monthlyStatsProvider =
 final monthlySpendingProvider =
     FutureProvider.autoDispose.family<int, String>(
   (ref, monthKey) async {
-    try {
-      final parts = monthKey.split('-');
-      final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-      final service = ref.read(goodsServiceProvider);
-      return await service.getMonthlySpending(month);
-    } catch (e) {
-      return 0;
-    }
+    final parts = monthKey.split('-');
+    final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    final service = ref.read(goodsServiceProvider);
+    return await service.getMonthlySpending(month);
   },
 );
 
@@ -76,14 +64,10 @@ final monthlySpendingProvider =
 final workTagSpendingProvider =
     FutureProvider.autoDispose.family<Map<String, int>, String>(
   (ref, monthKey) async {
-    try {
-      final parts = monthKey.split('-');
-      final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-      final service = ref.read(goodsServiceProvider);
-      return await service.getWorkTagSpending(month);
-    } catch (e) {
-      return {};
-    }
+    final parts = monthKey.split('-');
+    final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    final service = ref.read(goodsServiceProvider);
+    return await service.getWorkTagSpending(month);
   },
 );
 
@@ -91,12 +75,8 @@ final workTagSpendingProvider =
 final spendingHistoryProvider =
     FutureProvider.autoDispose.family<List<MonthlySpendingEntry>, int>(
   (ref, months) async {
-    try {
-      final service = ref.read(goodsServiceProvider);
-      return await service.getMonthlySpendingHistory(months);
-    } catch (e) {
-      return [];
-    }
+    final service = ref.read(goodsServiceProvider);
+    return await service.getMonthlySpendingHistory(months);
   },
 );
 

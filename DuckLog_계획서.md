@@ -552,3 +552,30 @@ lib/
 4. **캘린더**: AniList에서 현재 방영 중인 애니 데이터가 캘린더에 정상 표시되는지 확인
 5. **소셜**: 계정 2개로 친구 추가 → 공개/비공개/친구공개 각각 노출 여부 테스트
 6. **성능**: 굿즈 100건 등록 후 목록 스크롤 성능 확인
+
+---
+
+## 16. 출시 전 체크리스트
+
+### 🔴 필수 (출시 블로커)
+- [ ] 카카오 로그인: AndroidManifest `kakao{YOUR_KAKAO_NATIVE_APP_KEY}` → 실제 키로 교체
+- [ ] Twitch redirect URL: localhost → 프로덕션 URL로 변경
+- [ ] Google OAuth: Release SHA-1 등록 + 동의 화면 "프로덕션" 전환
+- [ ] 개인정보처리방침 URL 작성 및 호스팅 (GitHub Pages 등)
+- [ ] 서비스 이용약관 URL 작성 및 호스팅
+- [ ] Play Store 데이터 안전 섹션 작성
+- [ ] IARC 콘텐츠 등급 설문
+
+### 🟠 코드 품질 (출시 전 해결 권장)
+- [x] debugPrint 정리 — FCM/main만 kDebugMode 가드, 나머지 45개 중 36개 제거
+- [x] 에러 핸들링 개선 — 7개 Provider의 try-catch 제거, Riverpod error 상태로 전파
+- [x] 버튼 중복 탭 방지 — 점검 완료. 다이얼로그 패턴으로 이미 보호됨
+- [x] 폼 입력 validation — 점검 완료. 필수 필드(품목명, 도감이름 등) 모두 validator 적용됨
+- [x] 네트워크 타임아웃 — 점검 완료. 모든 API 서비스에 15~60초 timeout + 사용자 에러 메시지 구현됨
+
+### 🟡 출시 후 개선
+- [ ] 네트워크 재시도 로직
+- [ ] 오프라인 모드 (Hive 캐싱)
+- [ ] 스켈레톤 로더 추가
+- [ ] Firebase Analytics / Sentry 크래시 리포팅
+- [ ] CI/CD 파이프라인 구축

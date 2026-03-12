@@ -92,7 +92,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
       setState(() => _avatarUrl = publicUrl);
     } catch (e) {
-      debugPrint('이미지 업로드에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '이미지 업로드에 실패했어요');
       }
@@ -139,7 +138,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      debugPrint('저장에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '저장에 실패했어요');
       }
@@ -182,7 +180,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
-      debugPrint('탈퇴에 실패했어요: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         DuckSnackBar.error(context, '탈퇴에 실패했어요');

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// 백그라운드 메시지 핸들러 (top-level function 필수)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('[FCM] Background message: ${message.messageId}');
+  if (kDebugMode) debugPrint('[FCM] Background message: ${message.messageId}');
 }
 
 class FcmService {
@@ -60,7 +60,7 @@ class FcmService {
       badge: true,
       sound: true,
     );
-    debugPrint('[FCM] Permission: ${settings.authorizationStatus}');
+    if (kDebugMode) debugPrint('[FCM] Permission: ${settings.authorizationStatus}');
 
     if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
@@ -91,7 +91,7 @@ class FcmService {
 
   /// Supabase에 FCM 토큰 저장
   Future<void> _saveToken(String token) async {
-    debugPrint('[FCM] Token: ${token.substring(0, 20)}...');
+    if (kDebugMode) debugPrint('[FCM] Token: ${token.substring(0, 20)}...');
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
@@ -102,7 +102,7 @@ class FcmService {
         'updated_at': DateTime.now().toIso8601String(),
       }, onConflict: 'user_id');
     } catch (e) {
-      debugPrint('[FCM] Token save failed: $e');
+      if (kDebugMode) debugPrint('[FCM] Token save failed: $e');
     }
   }
 
@@ -116,7 +116,7 @@ class FcmService {
             .delete()
             .eq('user_id', user.id);
       } catch (e) {
-        debugPrint('[FCM] Token delete failed: $e');
+        if (kDebugMode) debugPrint('[FCM] Token delete failed: $e');
       }
     }
     await _messaging.deleteToken();
@@ -134,7 +134,7 @@ class FcmService {
       await _setTopic('like', like);
       await _setTopic('calendar', calendar);
     } catch (e) {
-      debugPrint('[FCM] Topic sync failed: $e');
+      if (kDebugMode) debugPrint('[FCM] Topic sync failed: $e');
     }
   }
 
@@ -153,7 +153,7 @@ class FcmService {
 
   /// 포그라운드 메시지 → 로컬 알림으로 직접 표시
   void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('[FCM] Foreground: ${message.notification?.title}');
+    if (kDebugMode) debugPrint('[FCM] Foreground: ${message.notification?.title}');
     final notification = message.notification;
     if (notification == null) return;
 
@@ -176,6 +176,6 @@ class FcmService {
 
   /// 알림 탭 처리
   void _handleMessageTap(RemoteMessage message) {
-    debugPrint('[FCM] Tapped: ${message.data}');
+    if (kDebugMode) debugPrint('[FCM] Tapped: ${message.data}');
   }
 }

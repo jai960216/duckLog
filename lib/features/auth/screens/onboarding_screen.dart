@@ -35,7 +35,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // 프로필 생성 후 ProfileGate가 다시 체크하도록 갱신
       ref.invalidate(currentProfileProvider);
     } catch (e) {
-      debugPrint('프로필 생성에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '프로필 생성에 실패했어요');
       }

@@ -20,7 +20,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authServiceProvider).signInWithGoogle();
     } catch (e) {
-      debugPrint('로그인에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '로그인에 실패했어요');
       }
@@ -34,7 +33,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authServiceProvider).signInWithKakao();
     } catch (e) {
-      debugPrint('로그인에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '로그인에 실패했어요');
       }

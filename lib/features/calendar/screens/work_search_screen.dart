@@ -97,7 +97,6 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
     } catch (e) {
       if (!mounted || gen != _searchGeneration) return;
       setState(() => _isSearching = false);
-      debugPrint('검색 실패: $e');
       DuckSnackBar.error(context, '검색 실패');
     }
   }
@@ -144,7 +143,6 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
-      debugPrint('추가 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '추가 실패');
       }
@@ -179,7 +177,6 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
-      debugPrint('추가 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '추가 실패');
       }
@@ -221,7 +218,6 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
-      debugPrint('추가 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '추가 실패');
       }
@@ -269,7 +265,6 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
         );
       }
     } catch (e) {
-      debugPrint('추가 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '추가 실패');
       }
@@ -302,7 +297,6 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
       await service.unfollowWork(id);
       ref.invalidate(followedWorksProvider);
     } catch (e) {
-      debugPrint('해제 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '해제 실패');
       }

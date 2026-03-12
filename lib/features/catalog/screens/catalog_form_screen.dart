@@ -113,7 +113,6 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
 
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      debugPrint('저장에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '저장에 실패했어요');
       }

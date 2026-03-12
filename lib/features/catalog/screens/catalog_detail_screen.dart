@@ -229,7 +229,6 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       }
       _invalidateAll();
     } catch (e) {
-      debugPrint('업로드에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '업로드에 실패했어요');
       }
@@ -1022,11 +1021,6 @@ class _CharacterCatalogEditScreenState
 
       // 4. Snapshot the desired order
       final orderedChars = List<CharacterSetupData>.of(characters);
-      debugPrint('[SAVE] Saving ${orderedChars.length} characters:');
-      for (int i = 0; i < orderedChars.length; i++) {
-        debugPrint('[SAVE]   [$i] ${orderedChars[i].name} (id=${orderedChars[i].id})');
-      }
-
       // 5. Update/create characters and items
       for (int ci = 0; ci < orderedChars.length; ci++) {
         final charData = orderedChars[ci];
@@ -1039,7 +1033,6 @@ class _CharacterCatalogEditScreenState
             charPhotoUrl = await service.uploadPhoto(
                 photoBytes, charData.newPhotoFile!.name);
           }
-          debugPrint('[SAVE] updateCharacter(${charData.id!.substring(0, 8)}, sort_order=$ci, name=${charData.name})');
           await service.updateCharacter(charData.id!, {
             'name': charData.name,
             'sort_order': ci,
@@ -1119,7 +1112,6 @@ class _CharacterCatalogEditScreenState
 
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      debugPrint('수정에 실패했어요: $e');
       if (mounted) {
         DuckSnackBar.error(context, '수정에 실패했어요');
       }

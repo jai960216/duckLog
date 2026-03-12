@@ -116,7 +116,6 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    debugPrint('[SUBMIT] Order: ${_characters.map((c) => '${c.name}(id=${c.id?.substring(0, 6)})').toList()}');
     setState(() => _isLoading = true);
     try {
       final workTag = _workTagController.text.trim();
@@ -212,14 +211,11 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
   }
 
   void _onReorderCharacters(int oldIndex, int newIndex) {
-    debugPrint('[REORDER] oldIndex=$oldIndex, newIndex=$newIndex');
-    debugPrint('[REORDER] BEFORE: ${_characters.map((c) => c.name).toList()}');
     setState(() {
       if (newIndex > oldIndex) newIndex--;
       final item = _characters.removeAt(oldIndex);
       _characters.insert(newIndex, item);
     });
-    debugPrint('[REORDER] AFTER: ${_characters.map((c) => c.name).toList()}');
   }
 
   @override

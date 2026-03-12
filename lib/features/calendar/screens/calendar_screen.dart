@@ -120,7 +120,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       await service.unfollowWork(id);
       ref.invalidate(followedWorksProvider);
     } catch (e) {
-      debugPrint('해제 실패: $e');
       if (mounted) {
         DuckSnackBar.error(context, '해제 실패');
       }

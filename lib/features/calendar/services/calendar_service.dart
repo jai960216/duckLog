@@ -13,26 +13,18 @@ final calendarServiceProvider = Provider<CalendarService>((ref) {
 
 final followedWorksProvider =
     FutureProvider.autoDispose<List<FollowedWork>>((ref) async {
-  try {
-    final service = ref.read(calendarServiceProvider);
-    return await service.getFollowedWorks();
-  } catch (e) {
-    return [];
-  }
+  final service = ref.read(calendarServiceProvider);
+  return await service.getFollowedWorks();
 });
 
 // key: "yyyy-MM"
 final monthEventsProvider =
     FutureProvider.autoDispose.family<List<CalendarEvent>, String>(
   (ref, monthKey) async {
-    try {
-      final parts = monthKey.split('-');
-      final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-      final service = ref.read(calendarServiceProvider);
-      return await service.getEventsForMonth(month);
-    } catch (e) {
-      return [];
-    }
+    final parts = monthKey.split('-');
+    final month = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+    final service = ref.read(calendarServiceProvider);
+    return await service.getEventsForMonth(month);
   },
 );
 
@@ -40,12 +32,8 @@ final monthEventsProvider =
 final workEventsProvider =
     FutureProvider.autoDispose.family<List<CalendarEvent>, String>(
   (ref, externalId) async {
-    try {
-      final service = ref.read(calendarServiceProvider);
-      return await service.getEventsForWork(externalId);
-    } catch (e) {
-      return [];
-    }
+    final service = ref.read(calendarServiceProvider);
+    return await service.getEventsForWork(externalId);
   },
 );
 
