@@ -561,8 +561,8 @@ lib/
 - [ ] 카카오 로그인: AndroidManifest `kakao{YOUR_KAKAO_NATIVE_APP_KEY}` → 실제 키로 교체
 - [ ] Twitch redirect URL: localhost → 프로덕션 URL로 변경
 - [ ] Google OAuth: Release SHA-1 등록 + 동의 화면 "프로덕션" 전환
-- [ ] 개인정보처리방침 URL 작성 및 호스팅 (GitHub Pages 등)
-- [ ] 서비스 이용약관 URL 작성 및 호스팅
+- [x] 개인정보처리방침 URL: https://jai960216.github.io/duckLog/privacy-policy.html
+- [x] 서비스 이용약관 URL: https://jai960216.github.io/duckLog/terms-of-service.html
 - [ ] Play Store 데이터 안전 섹션 작성
 - [ ] IARC 콘텐츠 등급 설문
 
@@ -572,6 +572,9 @@ lib/
 - [x] 버튼 중복 탭 방지 — 점검 완료. 다이얼로그 패턴으로 이미 보호됨
 - [x] 폼 입력 validation — 점검 완료. 필수 필드(품목명, 도감이름 등) 모두 validator 적용됨
 - [x] 네트워크 타임아웃 — 점검 완료. 모든 API 서비스에 15~60초 timeout + 사용자 에러 메시지 구현됨
+
+### 📝 작업 이력
+- **2026-03-12**: debugPrint 정리 (36개 제거, FCM/main kDebugMode 가드), Provider 에러 전파 개선 (7개), 개인정보처리방침/이용약관 GitHub Pages 배포, 레포 public 전환
 
 ### 🟡 출시 후 개선
 - [ ] 네트워크 재시도 로직
