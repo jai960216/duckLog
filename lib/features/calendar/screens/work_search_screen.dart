@@ -1233,7 +1233,7 @@ class _WebtoonCard extends StatelessWidget {
 
 Widget _webtoonNotConfigured() {
   return const DuckEmptyState(
-    message: '웹툰 API 설정이 필요해요.\nkorea-webtoon-api를 배포한 뒤\nconstants.dart에 URL을 입력해주세요.',
+    message: '웹툰 기능을 사용하려면\nSupabase 설정이 필요해요.',
     icon: PhosphorIconsBold.gear,
   );
 }

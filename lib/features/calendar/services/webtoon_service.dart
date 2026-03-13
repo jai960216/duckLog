@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import '../../../shared/utils/constants.dart';
+import '../../../config/supabase_config.dart';
+import '../../../shared/utils/http_retry.dart';
 
 final webtoonServiceProvider = Provider<WebtoonService>((ref) {
   return WebtoonService();
@@ -81,34 +82,19 @@ class WebtoonData {
 }
 
 class WebtoonService {
-  static const _httpTimeout = Duration(seconds: 60);
-  static const _maxRetries = 2;
+  static const _httpTimeout = Duration(seconds: 30);
 
-  bool get isConfigured => AppConstants.webtoonApiUrl.isNotEmpty;
+  bool get isConfigured => SupabaseConfig.isConfigured;
 
-  String get _endpoint => AppConstants.webtoonApiUrl;
+  String get _endpoint => '${SupabaseConfig.url}/functions/v1';
 
-  /// 재시도 포함 HTTP GET
+  Map<String, String> get _headers => {
+        'Authorization': 'Bearer ${SupabaseConfig.anonKey}',
+        'apikey': SupabaseConfig.anonKey,
+      };
+
   Future<http.Response> _getWithRetry(Uri uri) async {
-    for (int attempt = 0; attempt < _maxRetries; attempt++) {
-      try {
-        final response = await http.get(uri).timeout(_httpTimeout);
-        if (response.statusCode == 200) return response;
-        // 500/502/503 등 서버 에러는 재시도
-        if (response.statusCode >= 500 && attempt < _maxRetries - 1) {
-          await Future.delayed(const Duration(seconds: 3));
-          continue;
-        }
-        throw Exception('Webtoon API error: ${response.statusCode}');
-      } catch (e) {
-        if (attempt < _maxRetries - 1 && e is! Exception) {
-          await Future.delayed(const Duration(seconds: 3));
-          continue;
-        }
-        rethrow;
-      }
-    }
-    throw Exception('Webtoon API: 최대 재시도 초과');
+    return HttpRetry.get(uri, headers: _headers, timeout: _httpTimeout);
   }
 
   /// 웹툰 검색

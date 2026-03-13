@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
+import '../../../shared/utils/http_retry.dart';
 import '../models/tcg_types.dart';
 
 // ── Service (YGOProDeck API v7) ──
@@ -15,7 +15,7 @@ class YugiohService {
     if (_setsCache != null) return _setsCache!;
 
     final uri = Uri.parse('$_baseUrl/cardsets.php');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('Yu-Gi-Oh API 오류: ${response.statusCode}');
     }
@@ -48,7 +48,7 @@ class YugiohService {
 
   Future<List<TcgCard>> searchCards(String query) async {
     final uri = Uri.parse('$_baseUrl/cardinfo.php?fname=${Uri.encodeComponent(query)}');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode == 400) return []; // no results
     if (response.statusCode != 200) {
       throw Exception('카드 검색 오류: ${response.statusCode}');
@@ -72,7 +72,7 @@ class YugiohService {
   Future<List<TcgCard>> getCardsBySet(String setName) async {
     final uri = Uri.parse(
         '$_baseUrl/cardinfo.php?cardset=${Uri.encodeComponent(setName)}');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode == 400) return [];
     if (response.statusCode != 200) {
       throw Exception('세트 정보를 불러올 수 없어요: ${response.statusCode}');

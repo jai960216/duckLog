@@ -529,7 +529,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => DuckSkeleton(
+        child: Column(
+          children: List.generate(3, (_) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Container(
+              height: 60,
+              decoration: BoxDecoration(
+                color: DuckColors.surface,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          )),
+        ),
+      ),
       error: (_, __) => Center(
         child: Text(
           '일정을 불러올 수 없어요.',

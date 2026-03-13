@@ -315,10 +315,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   .toList(),
             );
           },
-          loading: () => const Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(
-              child: CircularProgressIndicator(color: DuckColors.primary),
+          loading: () => DuckSkeleton(
+            child: Column(
+              children: List.generate(3, (_) => const GoodsCardSkeleton()),
             ),
           ),
           error: (_, __) => const DuckEmptyState(

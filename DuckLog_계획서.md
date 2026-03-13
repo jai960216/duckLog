@@ -253,61 +253,59 @@ TextSub:     #999999  (보조 텍스트)
 
 ## 6. 개발 로드맵
 
-### Phase 1: 프로젝트 세팅 + 인증 (1주)
-- [ ] Flutter 프로젝트 생성 + 폴더 구조 잡기
-- [ ] Supabase 프로젝트 생성 + DB 스키마 적용
-- [ ] 디자인 시스템 구축 (컬러, 폰트, 공통 위젯)
-- [ ] 카카오 로그인 연동
-- [ ] 구글 로그인 연동
-- [ ] 온보딩 / 프로필 초기 설정 화면
+### Phase 1: 프로젝트 세팅 + 인증 (1주) ✅
+- [x] Flutter 프로젝트 생성 + 폴더 구조 잡기
+- [x] Supabase 프로젝트 생성 + DB 스키마 적용
+- [x] 디자인 시스템 구축 (컬러, 폰트, 공통 위젯)
+- [x] 카카오 로그인 연동
+- [x] 구글 로그인 연동
+- [x] 온보딩 / 프로필 초기 설정 화면
 
-### Phase 2: 덕질 기록 핵심 (2주)
-- [ ] 굿즈 직접 입력 화면 (폼 UI)
-- [ ] 사진 촬영/갤러리 선택 + 업로드 전 압축 (flutter_image_compress)
-  - 목록 썸네일용: 300px 리사이즈
-  - 상세 뷰용: 1080px 리사이즈
-  - 원본은 저장하지 않음 → Storage 비용 절감
-- [ ] Supabase Storage 업로드
-- [ ] 기록 목록 뷰 (날짜순, 필터링)
-- [ ] 기록 상세 뷰 + 수정/삭제 기능
-- [ ] 카테고리/작품/아티스트 태그 시스템
-- [ ] 오프라인 임시 저장 (Hive) — 네트워크 끊겨도 데이터 보존, 복구 시 자동 동기화
+### Phase 2: 덕질 기록 핵심 (2주) ✅
+- [x] 굿즈 직접 입력 화면 (폼 UI)
+- [x] 사진 촬영/갤러리 선택 + 업로드 전 압축 (flutter_image_compress)
+- [x] Supabase Storage 업로드
+- [x] 기록 목록 뷰 (날짜순, 필터링)
+- [x] 기록 상세 뷰 + 수정/삭제 기능
+- [x] 카테고리/작품/아티스트 태그 시스템
+- [ ] 오프라인 임시 저장 (Hive) — 알림 설정에만 사용 중, 굿즈 오프라인 저장은 미구현
 
 ### ~~Phase 3: 영수증 OCR~~ (제외)
 - OCR 기능은 정확도/비용 대비 효용이 낮아 제외
 - 영수증은 사진 첨부 + 직접 입력으로 대체
 
-### Phase 4: 통계 & 리포트 (1주)
-- [ ] 월별/연별 지출 차트 (fl_chart)
-- [ ] 카테고리별 파이차트
-- [ ] "이번 달 덕질 요약" 카드 (홈 화면 상단)
-- [ ] 월간 리포트 이미지 생성 + 공유 기능
+### Phase 4: 통계 & 리포트 (1주) ✅
+- [x] 월별/연별 지출 차트 (fl_chart)
+- [x] 카테고리별 파이차트
+- [x] "이번 달 덕질 요약" 카드 (홈 화면 상단)
+- [x] 월간 리포트 이미지 생성 + 공유 기능
 
-### Phase 5: 콘텐츠 캘린더 (2주)
-- [ ] AniList GraphQL API 연동 — 애니 검색 + 방영 스케줄 가져오기
-- [ ] IGDB API 연동 — 게임 검색 + 출시일 가져오기
-- [ ] 작품 팔로우 기능
-- [ ] 캘린더 뷰 UI (월간/주간)
-- [ ] Supabase Edge Function: 매일 자동 동기화 (cron)
-- [ ] 푸시 알림 (FCM 연동)
+### Phase 5: 콘텐츠 캘린더 (2주) ✅
+- [x] AniList GraphQL API 연동 — 애니 검색 + 방영 스케줄 가져오기
+- [x] IGDB API 연동 — 게임 검색 + 출시일 가져오기
+- [x] 웹툰 API 연동 — Supabase Edge Function (Naver/Kakao 크롤러)
+- [x] 작품 팔로우 기능
+- [x] 캘린더 뷰 UI (월간)
+- [x] Supabase Edge Function: 웹툰 데이터 자동 동기화 (pg_cron)
+- [x] 푸시 알림 (FCM 연동)
 
-### Phase 6: 소셜 & 프로필 (2주)
-- [ ] 프로필 편집 (닉네임, 사진, 자기소개, SNS 링크)
-- [ ] 공개 범위 설정 (전체/항목별)
-- [ ] 다른 유저 프로필 탐색 & 컬렉션 구경
-- [ ] 좋아요 기능
-- [ ] 친구 요청/수락 시스템
-- [ ] 친구 공개 컬렉션 열람
-- [ ] 프로필 공유 딥링크 — 고유 URL 생성 → 외부 SNS에 붙여서 유입 유도
+### Phase 6: 소셜 & 프로필 (2주) ✅
+- [x] 프로필 편집 (닉네임, 사진, 자기소개, SNS 링크)
+- [x] 공개 범위 설정 (전체/항목별)
+- [x] 다른 유저 프로필 탐색 & 컬렉션 구경
+- [x] 좋아요 기능
+- [x] 친구 요청/수락 시스템
+- [x] 친구 공개 컬렉션 열람
+- [x] 프로필 공유 (친구 코드 기반)
 
 ### Phase 7: 폴리싱 & 출시 준비 (2주)
-- [ ] Lottie 애니메이션 적용 (로딩, 빈 상태, 좋아요 등)
-- [ ] 에러 핸들링 & 엣지 케이스 처리
-- [ ] 성능 최적화 (이미지 캐싱, 페이지네이션)
-- [ ] 개인정보처리방침 작성 + 웹 호스팅 (GitHub Pages 등 무료)
-- [ ] 서비스 이용약관 작성
-- [ ] 결제 약관 작성 (인앱 구매 관련)
-- [ ] 앱 내 약관 동의 화면 (회원가입 시 체크박스)
+- [ ] Lottie 애니메이션 적용 (로딩, 빈 상태, 좋아요 등) — 의존성 설치됨, 에셋 미적용
+- [x] 에러 핸들링 & 엣지 케이스 처리
+- [x] 성능 최적화 (이미지 캐싱, 페이지네이션, 스켈레톤 로더)
+- [x] 개인정보처리방침 작성 + 웹 호스팅 (GitHub Pages)
+- [x] 서비스 이용약관 작성
+- [ ] 결제 약관 작성 (인앱 구매 관련) — Pro 구독 도입 시 작성
+- [x] 앱 내 약관 동의 화면
 - [ ] Play Store 메타데이터 준비 (스크린샷, 설명, 데이터 안전 섹션)
 - [ ] IARC 콘텐츠 등급 설문
 - [ ] Google Play 출시
@@ -558,9 +556,9 @@ lib/
 ## 16. 출시 전 체크리스트
 
 ### 🔴 필수 (출시 블로커)
-- [ ] 카카오 로그인: AndroidManifest `kakao{YOUR_KAKAO_NATIVE_APP_KEY}` → 실제 키로 교체
-- [ ] Twitch redirect URL: localhost → 프로덕션 URL로 변경
-- [ ] Google OAuth: Release SHA-1 등록 + 동의 화면 "프로덕션" 전환
+- [x] 카카오 로그인: AndroidManifest 키 교체 + Kakao Developers 플랫폼 등록 완료
+- [x] Twitch redirect URL: Supabase 콜백 URL 등록 완료
+- [x] Google OAuth: Release/Debug SHA-1 등록 + 동의 화면 프로덕션 전환 완료
 - [x] 개인정보처리방침 URL: https://jai960216.github.io/duckLog/privacy-policy.html
 - [x] 서비스 이용약관 URL: https://jai960216.github.io/duckLog/terms-of-service.html
 - [ ] Play Store 데이터 안전 섹션 작성
@@ -575,10 +573,15 @@ lib/
 
 ### 📝 작업 이력
 - **2026-03-12**: debugPrint 정리 (36개 제거, FCM/main kDebugMode 가드), Provider 에러 전파 개선 (7개), 개인정보처리방침/이용약관 GitHub Pages 배포, 레포 public 전환
+- **2026-03-13**: 스켈레톤 로더 추가 (shimmer 위젯 + 5개 화면), 네트워크 재시도 로직 (HttpRetry 유틸 + 6개 외부 API 서비스)
+- **2026-03-14**: 웹툰 API Render→Supabase Edge Function 이전 (Naver/Kakao 크롤러 + webtoons 테이블), 카카오 로그인 플랫폼 등록, Twitch redirect URL 등록, Google OAuth 앱 게시(프로덕션)
 
 ### 🟡 출시 후 개선
-- [ ] 네트워크 재시도 로직
-- [ ] 오프라인 모드 (Hive 캐싱)
-- [ ] 스켈레톤 로더 추가
+- [x] 네트워크 재시도 로직 — HttpRetry 공통 유틸 + IGDB/Pokemon/MTG/Yu-Gi-Oh/Digimon/MFC 6개 서비스 적용
+- [ ] 오프라인 모드 (Hive 캐싱) — 굿즈 입력 오프라인 임시 저장
+- [x] 스켈레톤 로더 추가 — DuckSkeleton shimmer 위젯 + 홈/굿즈/피드/도감/캘린더 5개 화면 적용
+- [ ] Lottie 애니메이션 — 오리 마스코트 로딩/빈 상태/좋아요 애니메이션
+- [ ] KakaoPage 웹툰 크롤러 — 현재 403 차단, 대안 필요
 - [ ] Firebase Analytics / Sentry 크래시 리포팅
 - [ ] CI/CD 파이프라인 구축
+- [ ] Render + UptimeRobot 삭제 (Supabase 이전 완료 확인 후)

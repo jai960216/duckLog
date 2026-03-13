@@ -493,6 +493,38 @@ CREATE POLICY "Users can delete own catalog photos"
   );
 
 -- ============================================
+-- WEBTOONS (Edge Function 크롤러 데이터)
+-- ============================================
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS webtoons (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  update_days TEXT[] DEFAULT '{}',
+  url TEXT NOT NULL,
+  thumbnail TEXT[] DEFAULT '{}',
+  is_end BOOLEAN DEFAULT false,
+  is_free BOOLEAN DEFAULT true,
+  is_updated BOOLEAN DEFAULT false,
+  age_grade INTEGER DEFAULT 0,
+  free_wait_hour INTEGER,
+  authors TEXT[] DEFAULT '{}',
+  synced_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_webtoons_provider ON webtoons(provider);
+CREATE INDEX IF NOT EXISTS idx_webtoons_is_updated ON webtoons(is_updated);
+CREATE INDEX IF NOT EXISTS idx_webtoons_title_trgm ON webtoons USING gin(title gin_trgm_ops);
+
+ALTER TABLE webtoons ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read webtoons"
+  ON webtoons FOR SELECT
+  USING (true);
+
+-- ============================================
 -- FUNCTIONS
 -- ============================================
 

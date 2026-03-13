@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../../../config/igdb_config.dart';
+import '../../../shared/utils/http_retry.dart';
 
 final igdbServiceProvider = Provider<IgdbService>((ref) {
   return IgdbService();
@@ -174,17 +175,18 @@ class IgdbService {
     }
   }
 
-  /// IGDB API 호출
+  /// IGDB API 호출 (5xx/타임아웃 자동 재시도)
   Future<List<dynamic>> _query(String endpoint, String body) async {
     final token = await _getToken();
-    final response = await http.post(
+    final response = await HttpRetry.post(
       Uri.parse('$_apiEndpoint/$endpoint'),
       headers: {
         'Client-ID': IgdbConfig.clientId,
         'Authorization': 'Bearer $token',
       },
       body: body,
-    ).timeout(_httpTimeout);
+      timeout: _httpTimeout,
+    );
 
     if (response.statusCode != 200) {
       throw Exception('IGDB API error: ${response.statusCode}');

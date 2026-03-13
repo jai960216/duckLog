@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/widgets/duck_empty_state.dart';
+import '../../../shared/widgets/duck_skeleton.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_card.dart';
 import 'catalog_detail_screen.dart';
@@ -191,7 +192,7 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
     final asyncCatalogs = ref.watch(myCatalogsProvider);
 
     return asyncCatalogs.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const DuckListSkeleton(itemSkeleton: CatalogCardSkeleton()),
       error: (e, _) => Center(child: Text('오류가 발생했어요: $e')),
       data: (catalogs) {
         if (catalogs.isEmpty) {
@@ -225,7 +226,7 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
     final asyncCatalogs = ref.watch(publicCatalogsProvider);
 
     return asyncCatalogs.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const DuckListSkeleton(itemSkeleton: CatalogCardSkeleton()),
       error: (e, _) => Center(child: Text('오류가 발생했어요: $e')),
       data: (catalogs) {
         if (catalogs.isEmpty) {

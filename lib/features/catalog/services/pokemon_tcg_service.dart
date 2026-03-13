@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
+import '../../../shared/utils/http_retry.dart';
 import '../models/tcg_types.dart';
 
 // ── Service (TCGdex API) ──
@@ -15,7 +15,7 @@ class PokemonTcgService {
     if (_setsCache != null) return _setsCache!;
 
     final uri = Uri.parse('$_baseUrl/en/sets');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('Pokemon TCG API 오류: ${response.statusCode}');
     }
@@ -50,7 +50,7 @@ class PokemonTcgService {
 
   Future<List<TcgCard>> searchCards(String query) async {
     final uri = Uri.parse('$_baseUrl/en/cards?name=${Uri.encodeComponent(query)}');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('카드 검색 오류: ${response.statusCode}');
     }
@@ -69,7 +69,7 @@ class PokemonTcgService {
 
   Future<List<TcgCard>> getCardsBySet(String setId) async {
     final uri = Uri.parse('$_baseUrl/en/sets/$setId');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('세트 정보를 불러올 수 없어요: ${response.statusCode}');
     }

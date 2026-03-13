@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
+import '../../../shared/utils/http_retry.dart';
 import '../models/tcg_types.dart';
 
 // ── Service (DigimonCard.io API) ──
@@ -19,7 +19,7 @@ class DigimonTcgService {
     final uri = Uri.parse(
         '$_baseUrl/getAllCards.php?series=Digimon Card Game&sort=name&sortdirection=asc');
     final response =
-        await http.get(uri).timeout(const Duration(seconds: 30));
+        await HttpRetry.get(uri, timeout: const Duration(seconds: 30));
     if (response.statusCode != 200) {
       throw Exception('Digimon API 오류: ${response.statusCode}');
     }
@@ -86,7 +86,7 @@ class DigimonTcgService {
   Future<List<TcgCard>> searchCards(String query) async {
     final uri = Uri.parse(
         '$_baseUrl/search.php?n=${Uri.encodeComponent(query)}&series=Digimon Card Game');
-    final response = await http.get(uri).timeout(_httpTimeout);
+    final response = await HttpRetry.get(uri, timeout: _httpTimeout);
     if (response.statusCode == 400) return [];
     if (response.statusCode != 200) {
       throw Exception('카드 검색 오류: ${response.statusCode}');

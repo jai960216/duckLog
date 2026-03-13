@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
+import '../../../shared/utils/http_retry.dart';
 
 // ── Model ──
 
@@ -42,9 +42,7 @@ class MfcService {
       final uri = Uri.parse(
         '$_baseUrl/v1/collection/${Uri.encodeComponent(username)}?status=$status&page=$page',
       );
-      final response = await http.get(uri).timeout(
-        const Duration(seconds: 15),
-      );
+      final response = await HttpRetry.get(uri, timeout: const Duration(seconds: 15));
       if (response.statusCode == 404) {
         throw Exception('유저 "$username"을 찾을 수 없어요. MFC 유저네임을 확인해주세요.');
       }
@@ -82,9 +80,7 @@ class MfcService {
   Future<MfcFigure> getItem(int id) async {
     try {
       final uri = Uri.parse('$_baseUrl/v1/item/$id');
-      final response = await http.get(uri).timeout(
-        const Duration(seconds: 10),
-      );
+      final response = await HttpRetry.get(uri, timeout: const Duration(seconds: 10));
       if (response.statusCode != 200) {
         throw Exception('아이템을 불러올 수 없어요: ${response.statusCode}');
       }

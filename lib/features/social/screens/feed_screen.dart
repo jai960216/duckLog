@@ -120,8 +120,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
           ),
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: DuckColors.primary),
+      loading: () => const DuckListSkeleton(
+        itemSkeleton: FeedCardSkeleton(),
       ),
       error: (_, __) => DuckEmptyState(
         message: '피드를 불러올 수 없어요.\n다시 시도해주세요.',

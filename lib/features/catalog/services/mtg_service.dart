@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import '../../../shared/utils/http_retry.dart';
 import '../models/tcg_types.dart';
 
 // ── Service (Scryfall API) ──
@@ -36,7 +37,7 @@ class MtgService {
     await _throttle();
     final uri = Uri.parse('$_baseUrl/sets');
     final response =
-        await http.get(uri, headers: _headers).timeout(_httpTimeout);
+        await HttpRetry.get(uri, headers: _headers, timeout: _httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('MTG API 오류: ${response.statusCode}');
     }
@@ -75,7 +76,7 @@ class MtgService {
     final uri = Uri.parse(
         '$_baseUrl/cards/search?q=${Uri.encodeComponent(query)}&unique=cards');
     final response =
-        await http.get(uri, headers: _headers).timeout(_httpTimeout);
+        await HttpRetry.get(uri, headers: _headers, timeout: _httpTimeout);
     if (response.statusCode == 404) return []; // no results
     if (response.statusCode != 200) {
       throw Exception('카드 검색 오류: ${response.statusCode}');
@@ -90,7 +91,7 @@ class MtgService {
     final uri = Uri.parse(
         '$_baseUrl/cards/search?q=${Uri.encodeComponent("set:$setCode")}&order=set&unique=prints');
     final response =
-        await http.get(uri, headers: _headers).timeout(_httpTimeout);
+        await HttpRetry.get(uri, headers: _headers, timeout: _httpTimeout);
     if (response.statusCode == 404) return [];
     if (response.statusCode != 200) {
       throw Exception('세트 정보를 불러올 수 없어요: ${response.statusCode}');
@@ -108,7 +109,7 @@ class MtgService {
     while (nextPage != null && pageCount < 3) {
       await _throttle();
       final resp =
-          await http.get(Uri.parse(nextPage), headers: _headers).timeout(_httpTimeout);
+          await HttpRetry.get(Uri.parse(nextPage), headers: _headers, timeout: _httpTimeout);
       if (resp.statusCode != 200) break;
       final page = jsonDecode(resp.body) as Map<String, dynamic>;
       cards.addAll((page['data'] as List)

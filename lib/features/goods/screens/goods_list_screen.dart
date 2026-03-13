@@ -133,8 +133,8 @@ class _GoodsListScreenState extends ConsumerState<GoodsListScreen> {
                 ),
               );
             },
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: DuckColors.primary),
+            loading: () => const DuckListSkeleton(
+              itemSkeleton: GoodsCardSkeleton(),
             ),
             error: (error, _) => DuckEmptyState(
               message: '데이터를 불러올 수 없어요.\n다시 시도해주세요.',
