@@ -165,8 +165,8 @@ async function loadReports() {
       + '<td>' + esc(r.description || '-') + '</td>'
       + '<td>' + new Date(r.created_at).toLocaleDateString('ko') + '</td>'
       + '<td>'
-      + '<button class="btn btn-gray" onclick="dismiss(\\'' + r.report_id + '\\')">기각</button> '
-      + '<button class="btn btn-danger" onclick="suspend(\\'' + r.reported_user_id + '\\')">정지</button>'
+      + '<button class="btn btn-gray" onclick="dismiss(\'' + r.report_id + '\')">기각</button> '
+      + '<button class="btn btn-danger" onclick="suspend(\'' + r.reported_user_id + '\')">정지</button>'
       + '</td>'
       + '</tr>').join('')
     + '</tbody></table>';
@@ -188,7 +188,7 @@ async function loadSuspended() {
       + '<td>' + esc(u.nickname || '-') + '</td>'
       + '<td>' + u.report_count + '건</td>'
       + '<td>' + (u.suspended_since ? new Date(u.suspended_since).toLocaleDateString('ko') : '-') + '</td>'
-      + '<td><button class="btn btn-success" onclick="unsuspend(\\'' + u.user_id + '\\')">정지 해제</button></td>'
+      + '<td><button class="btn btn-success" onclick="unsuspend(\'' + u.user_id + '\')">정지 해제</button></td>'
       + '</tr>').join('')
     + '</tbody></table>';
 }
