@@ -105,17 +105,58 @@ const HTML = `<!DOCTYPE html>
 </div>
 
 <div class="tabs">
-  <button class="tab active" onclick="showTab('reports')">신고 목록</button>
-  <button class="tab" onclick="showTab('suspended')">정지된 유저</button>
+  <button class="tab active" onclick="showTab('reports')" id="tab-reports"></button>
+  <button class="tab" onclick="showTab('suspended')" id="tab-suspended"></button>
 </div>
 
-<div class="content" id="content">
-  <div class="empty">로딩 중...</div>
-</div>
+<div class="content" id="content"></div>
 
 <script>
 const SECRET = "__SECRET__";
 const BASE = window.location.pathname;
+
+// All Korean strings as JS (avoids encoding issues in Edge Function deployment)
+const L = {
+  tabReports: "\\uc2e0\\uace0 \\ubaa9\\ub85d",
+  tabSuspended: "\\uc815\\uc9c0\\ub41c \\uc720\\uc800",
+  loading: "\\ub85c\\ub529 \\uc911...",
+  noReports: "\\ub300\\uae30 \\uc911\\uc778 \\uc2e0\\uace0\\uac00 \\uc5c6\\uc2b5\\ub2c8\\ub2e4.",
+  noSuspended: "\\uc815\\uc9c0\\ub41c \\uc720\\uc800\\uac00 \\uc5c6\\uc2b5\\ub2c8\\ub2e4.",
+  pendingCount: "\\ub300\\uae30 \\uc911 \\uc2e0\\uace0",
+  thReporter: "\\uc2e0\\uace0\\uc790",
+  thTarget: "\\ub300\\uc0c1",
+  thReason: "\\uc0ac\\uc720",
+  thDesc: "\\uc124\\uba85",
+  thDate: "\\ub0a0\\uc9dc",
+  thAction: "\\uc870\\uce58",
+  thNickname: "\\ub2c9\\ub124\\uc784",
+  thReportCount: "\\uc2e0\\uace0 \\uc218",
+  thSuspendedSince: "\\uc815\\uc9c0 \\uc2dc\\uc810",
+  btnDismiss: "\\uae30\\uac01",
+  btnSuspend: "\\uc815\\uc9c0",
+  btnUnsuspend: "\\uc815\\uc9c0 \\ud574\\uc81c",
+  confirmDismiss: "\\uc774 \\uc2e0\\uace0\\ub97c \\uae30\\uac01\\ud558\\uc2dc\\uaca0\\uc2b5\\ub2c8\\uae4c?",
+  confirmSuspend: "\\uc774 \\uc720\\uc800\\ub97c \\uc815\\uc9c0\\ud558\\uc2dc\\uaca0\\uc2b5\\ub2c8\\uae4c?",
+  confirmUnsuspend: "\\uc774 \\uc720\\uc800\\uc758 \\uc815\\uc9c0\\ub97c \\ud574\\uc81c\\ud558\\uc2dc\\uaca0\\uc2b5\\ub2c8\\uae4c?",
+  reasonInappropriate: "\\ubd80\\uc801\\uc808\\ud55c \\ucf58\\ud150\\uce20",
+  reasonSpam: "\\uc2a4\\ud338/\\uad11\\uace0",
+  reasonHarassment: "\\uad34\\ub86d\\ud798/\\uc695\\uc124",
+  reasonImpersonation: "\\uc0ac\\uce6d",
+  reasonOther: "\\uae30\\ud0c0",
+  unitCount: "\\uac74"
+};
+
+// Init tab labels
+document.getElementById('tab-reports').textContent = L.tabReports;
+document.getElementById('tab-suspended').textContent = L.tabSuspended;
+
+const REASON_MAP = {
+  inappropriate: L.reasonInappropriate,
+  spam: L.reasonSpam,
+  harassment: L.reasonHarassment,
+  impersonation: L.reasonImpersonation,
+  other: L.reasonOther
+};
 
 async function api(action, params = {}) {
   const qs = new URLSearchParams({ secret: SECRET, action, ...params });
@@ -135,28 +176,22 @@ function showTab(tab) {
   else loadSuspended();
 }
 
-const REASON_MAP = {
-  inappropriate: '부적절한 콘텐츠',
-  spam: '스팸/광고',
-  harassment: '괴롭힘/욕설',
-  impersonation: '사칭',
-  other: '기타'
-};
-
 async function loadReports() {
-  const data = await api('reports', { status: 'pending' });
   const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">' + L.loading + '</div>';
+
+  const data = await api('reports', { status: 'pending' });
 
   if (!data.length) {
-    el.innerHTML = '<div class="empty">대기 중인 신고가 없습니다.</div>';
+    el.innerHTML = '<div class="empty">' + L.noReports + '</div>';
     return;
   }
 
   el.innerHTML = '<div class="stats">'
-    + '<div class="stat-card"><div class="num">' + data.length + '</div><div class="label">대기 중 신고</div></div>'
+    + '<div class="stat-card"><div class="num">' + data.length + '</div><div class="label">' + L.pendingCount + '</div></div>'
     + '</div>'
     + '<table><thead><tr>'
-    + '<th>신고자</th><th>대상</th><th>사유</th><th>설명</th><th>날짜</th><th>조치</th>'
+    + '<th>' + L.thReporter + '</th><th>' + L.thTarget + '</th><th>' + L.thReason + '</th><th>' + L.thDesc + '</th><th>' + L.thDate + '</th><th>' + L.thAction + '</th>'
     + '</tr></thead><tbody>'
     + data.map(r => '<tr>'
       + '<td>' + esc(r.reporter_nickname || '-') + '</td>'
@@ -165,48 +200,50 @@ async function loadReports() {
       + '<td>' + esc(r.description || '-') + '</td>'
       + '<td>' + new Date(r.created_at).toLocaleDateString('ko') + '</td>'
       + '<td>'
-      + '<button class="btn btn-gray" onclick="dismiss(\'' + r.report_id + '\')">기각</button> '
-      + '<button class="btn btn-danger" onclick="suspend(\'' + r.reported_user_id + '\')">정지</button>'
+      + '<button class="btn btn-gray" onclick="dismiss(\\'' + r.report_id + '\\')">' + L.btnDismiss + '</button> '
+      + '<button class="btn btn-danger" onclick="suspend(\\'' + r.reported_user_id + '\\')">' + L.btnSuspend + '</button>'
       + '</td>'
       + '</tr>').join('')
     + '</tbody></table>';
 }
 
 async function loadSuspended() {
-  const data = await api('suspended');
   const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">' + L.loading + '</div>';
+
+  const data = await api('suspended');
 
   if (!data.length) {
-    el.innerHTML = '<div class="empty">정지된 유저가 없습니다.</div>';
+    el.innerHTML = '<div class="empty">' + L.noSuspended + '</div>';
     return;
   }
 
   el.innerHTML = '<table><thead><tr>'
-    + '<th>닉네임</th><th>신고 수</th><th>정지 시점</th><th>조치</th>'
+    + '<th>' + L.thNickname + '</th><th>' + L.thReportCount + '</th><th>' + L.thSuspendedSince + '</th><th>' + L.thAction + '</th>'
     + '</tr></thead><tbody>'
     + data.map(u => '<tr>'
       + '<td>' + esc(u.nickname || '-') + '</td>'
-      + '<td>' + u.report_count + '건</td>'
+      + '<td>' + u.report_count + L.unitCount + '</td>'
       + '<td>' + (u.suspended_since ? new Date(u.suspended_since).toLocaleDateString('ko') : '-') + '</td>'
-      + '<td><button class="btn btn-success" onclick="unsuspend(\'' + u.user_id + '\')">정지 해제</button></td>'
+      + '<td><button class="btn btn-success" onclick="unsuspend(\\'' + u.user_id + '\\')">' + L.btnUnsuspend + '</button></td>'
       + '</tr>').join('')
     + '</tbody></table>';
 }
 
 async function dismiss(reportId) {
-  if (!confirm('이 신고를 기각하시겠습니까?')) return;
+  if (!confirm(L.confirmDismiss)) return;
   await api('dismiss', { report_id: reportId });
   loadReports();
 }
 
 async function suspend(userId) {
-  if (!confirm('이 유저를 정지하시겠습니까?')) return;
+  if (!confirm(L.confirmSuspend)) return;
   await api('suspend', { user_id: userId });
   loadReports();
 }
 
 async function unsuspend(userId) {
-  if (!confirm('이 유저의 정지를 해제하시겠습니까?')) return;
+  if (!confirm(L.confirmUnsuspend)) return;
   await api('unsuspend', { user_id: userId });
   loadSuspended();
 }
