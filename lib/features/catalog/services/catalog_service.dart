@@ -6,6 +6,8 @@ import '../../../shared/models/catalog.dart';
 import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../auth/services/auth_service.dart';
+import '../../goods/services/goods_service.dart';
+import '../../subscription/services/subscription_service.dart';
 
 final catalogServiceProvider = Provider<CatalogService>((ref) {
   return CatalogService(ref.read(supabaseClientProvider));
@@ -77,7 +79,16 @@ class CatalogService {
     String? coverUrl,
     double coverFitY = 0.5,
     String visibility = 'private',
+    SubscriptionService? subscriptionService,
   }) async {
+    // Check catalog creation limit for free users
+    if (subscriptionService != null) {
+      final canCreate = await subscriptionService.checkCanCreateCatalog();
+      if (!canCreate) {
+        throw CatalogLimitExceededException();
+      }
+    }
+
     final data = {
       'user_id': _userId,
       'name': name,

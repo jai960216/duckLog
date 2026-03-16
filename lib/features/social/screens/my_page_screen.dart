@@ -13,6 +13,8 @@ import '../../auth/services/auth_service.dart';
 import '../../goods/services/goods_service.dart';
 import '../../goods/screens/receipt_list_screen.dart';
 import '../../stats/screens/stats_screen.dart';
+import '../../subscription/screens/pro_screen.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../services/friend_service.dart';
 import 'block_list_screen.dart';
 import 'friend_list_screen.dart';
@@ -27,6 +29,7 @@ class MyPageScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(currentProfileProvider);
     final pendingAsync = ref.watch(pendingCountProvider);
+    final isProAsync = ref.watch(isProProvider);
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -185,6 +188,59 @@ class MyPageScreen extends ConsumerWidget {
           ),
           error: (_, __) => const SizedBox.shrink(),
         ),
+        const SizedBox(height: 16),
+
+        // DuckLog Pro
+        DuckCard(
+          margin: EdgeInsets.zero,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProScreen()),
+            );
+          },
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3D0),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Icon(
+                    isProAsync.valueOrNull == true
+                        ? PhosphorIconsFill.crown
+                        : PhosphorIconsBold.crown,
+                    size: 18,
+                    color: const Color(0xFFFFAA00),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'DuckLog Pro',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Text(
+                      isProAsync.valueOrNull == true ? 'Pro 구독 중' : '업그레이드하기',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: DuckColors.textSub,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(PhosphorIconsBold.caretRight,
+                  size: 14, color: DuckColors.textSub),
+            ],
+          ),
+        ),
+
         const SizedBox(height: 24),
 
         // Menu items

@@ -27,6 +27,12 @@
   .stat-card .num { font-size: 28px; font-weight: 700; }
   .stat-card .label { font-size: 12px; color: #888; margin-top: 4px; }
   .error { padding: 20px; text-align: center; color: #ff4444; }
+  .login-form { max-width: 360px; margin: 80px auto; text-align: center; }
+  .login-form input { width: 100%; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+  .login-form input:focus { outline: none; border-color: #FFC843; }
+  .login-form button { width: 100%; padding: 12px; background: #FFC843; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .login-form button:hover { opacity: 0.85; }
+  .login-form .error-msg { color: #ff4444; font-size: 13px; margin-top: 8px; display: none; }
 </style>
 </head>
 <body>
@@ -35,23 +41,67 @@
   <h1>DuckLog Admin Dashboard</h1>
 </div>
 
-<div class="tabs">
-  <button class="tab active" onclick="showTab('reports')">신고 목록</button>
-  <button class="tab" onclick="showTab('suspended')">정지된 유저</button>
+<div id="login-container">
+  <div class="login-form">
+    <h2 style="margin-bottom:24px">관리자 로그인</h2>
+    <input type="password" id="secret-input" placeholder="Admin Secret" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">로그인</button>
+    <div class="error-msg" id="login-error">인증에 실패했습니다.</div>
+  </div>
 </div>
 
-<div class="content" id="content">
-  <div class="empty">로딩 중...</div>
+<div id="dashboard-container" style="display:none">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('reports')">신고 목록</button>
+    <button class="tab" onclick="showTab('suspended')">정지된 유저</button>
+  </div>
+
+  <div class="content" id="content">
+    <div class="empty">로딩 중...</div>
+  </div>
 </div>
 
 <script>
 const API_BASE = "https://cznzscftkssajphlrvrt.supabase.co/functions/v1/admin-dashboard";
-const SECRET = "8ffd563f9c3b99347245c338c072bf65297d089c45f123eddb21888d71903abf";
+
+function getSecret() {
+  return sessionStorage.getItem('admin_secret') || '';
+}
+
+function doLogin() {
+  const input = document.getElementById('secret-input');
+  const secret = input.value.trim();
+  if (!secret) return;
+  sessionStorage.setItem('admin_secret', secret);
+  document.getElementById('login-error').style.display = 'none';
+  showDashboard();
+}
+
+function showLoginForm() {
+  sessionStorage.removeItem('admin_secret');
+  document.getElementById('login-container').style.display = '';
+  document.getElementById('dashboard-container').style.display = 'none';
+  document.getElementById('secret-input').value = '';
+}
+
+function showDashboard() {
+  document.getElementById('login-container').style.display = 'none';
+  document.getElementById('dashboard-container').style.display = '';
+  loadReports();
+}
 
 async function api(action, params = {}) {
-  const qs = new URLSearchParams({ secret: SECRET, action, ...params });
+  const qs = new URLSearchParams({ action, ...params });
   const method = ['dismiss','unsuspend','suspend'].includes(action) ? 'POST' : 'GET';
-  const res = await fetch(API_BASE + '?' + qs, { method });
+  const res = await fetch(API_BASE + '?' + qs, {
+    method,
+    headers: { 'x-admin-secret': getSecret() },
+  });
+  if (res.status === 401) {
+    document.getElementById('login-error').style.display = '';
+    showLoginForm();
+    throw new Error('Unauthorized');
+  }
   return res.json();
 }
 
@@ -166,7 +216,10 @@ async function unsuspend(userId) {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-loadReports();
+// Auto-login if secret exists in sessionStorage
+if (getSecret()) {
+  showDashboard();
+}
 </script>
 </body>
 </html>

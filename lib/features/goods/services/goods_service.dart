@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/constants.dart';
 import '../../auth/services/auth_service.dart';
+import '../../subscription/services/subscription_service.dart';
 
 final goodsServiceProvider = Provider<GoodsService>((ref) {
   return GoodsService(ref.read(supabaseClientProvider));
@@ -450,13 +451,28 @@ class GoodsService {
     return entries;
   }
 
-  // Upload photo to Supabase Storage
+  // Upload photo to Supabase Storage (with Pro limit check)
   Future<String> uploadPhoto(Uint8List bytes, String fileName,
-      {String bucket = 'goods-photos'}) async {
+      {String bucket = 'goods-photos',
+      SubscriptionService? subscriptionService}) async {
+    // Check photo upload limit for free users
+    if (subscriptionService != null) {
+      final canUpload = await subscriptionService.checkCanUploadPhoto();
+      if (!canUpload) {
+        throw PhotoLimitExceededException();
+      }
+    }
+
     final ext = fileName.split('.').last;
     final path = '$_userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     await _client.storage.from(bucket).uploadBinary(path, bytes);
+
+    // Increment photo usage counter
+    if (subscriptionService != null) {
+      await subscriptionService.incrementPhotoUsage();
+    }
+
     return _client.storage.from(bucket).getPublicUrl(path);
   }
 
@@ -493,4 +509,14 @@ class GoodsService {
     }
     return tags.toList()..sort();
   }
+}
+
+class PhotoLimitExceededException implements Exception {
+  @override
+  String toString() => '이번 달 사진 업로드 한도를 초과했어요';
+}
+
+class CatalogLimitExceededException implements Exception {
+  @override
+  String toString() => '무료 플랜의 도감 생성 한도를 초과했어요';
 }

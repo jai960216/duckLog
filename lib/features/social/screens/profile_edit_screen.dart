@@ -59,6 +59,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     super.dispose();
   }
 
+  String? _validateSnsUrl(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final trimmed = value.trim();
+    if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
+      return 'URL은 https:// 또는 http://로 시작해야 해요';
+    }
+    return null;
+  }
+
   Future<void> _pickAvatar() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
@@ -344,6 +353,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 padding: EdgeInsets.only(left: 16),
                 child: Icon(PhosphorIconsBold.instagramLogo, size: 18),
               ),
+              validator: _validateSnsUrl,
             ),
             const SizedBox(height: 12),
 
@@ -354,6 +364,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 padding: EdgeInsets.only(left: 16),
                 child: Icon(PhosphorIconsBold.xLogo, size: 18),
               ),
+              validator: _validateSnsUrl,
             ),
             const SizedBox(height: 24),
 

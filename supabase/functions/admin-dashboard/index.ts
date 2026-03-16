@@ -1,9 +1,12 @@
 import { getServiceClient } from "../_shared/supabase-client.ts";
 
-const ADMIN_SECRET = Deno.env.get("ADMIN_SECRET") || "changeme";
+const ADMIN_SECRET = Deno.env.get("ADMIN_SECRET");
+if (!ADMIN_SECRET) {
+  throw new Error("ADMIN_SECRET environment variable is not set");
+}
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://jai960216.github.io",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "x-admin-secret, content-type",
 };
@@ -26,7 +29,7 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const secret = url.searchParams.get("secret") || req.headers.get("x-admin-secret");
+  const secret = req.headers.get("x-admin-secret");
 
   if (secret !== ADMIN_SECRET) return unauthorized();
 

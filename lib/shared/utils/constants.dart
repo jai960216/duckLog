@@ -16,4 +16,8 @@ class AppConstants {
   // Storage limits
   static const int maxImageSizeMb = 10;
   static const List<String> allowedImageTypes = ['jpg', 'jpeg', 'png'];
+
+  // Free tier limits
+  static const int freePhotoLimit = 50;
+  static const int freeCatalogLimit = 3;
 }

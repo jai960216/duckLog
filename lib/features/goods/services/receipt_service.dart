@@ -172,7 +172,15 @@ class ReceiptService {
             filter.endDate!.toIso8601String().split('T').first);
       }
       if (filter.searchQuery != null && filter.searchQuery!.isNotEmpty) {
-        final q = '%${filter.searchQuery!}%';
+        // Escape PostgREST special characters in search query
+        final escaped = filter.searchQuery!
+            .replaceAll(r'\', r'\\')
+            .replaceAll('%', r'\%')
+            .replaceAll('_', r'\_')
+            .replaceAll(',', r'\,')
+            .replaceAll('(', r'\(')
+            .replaceAll(')', r'\)');
+        final q = '%$escaped%';
         query = query.or('store_name.ilike.$q,memo.ilike.$q');
       }
     }

@@ -45,6 +45,9 @@ dependencies:
   # Network
   http: ^1.2.2
 
+  # In-App Purchases
+  in_app_purchase: ^3.2.0
+
   # Utils
   intl: ^0.19.0
   uuid: ^4.5.1
