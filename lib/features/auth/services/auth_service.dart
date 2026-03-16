@@ -100,6 +100,7 @@ class AuthService {
     required String nickname,
     String? avatarUrl,
     String? bio,
+    int? birthYear,
   }) async {
     final user = currentUser;
     if (user == null) throw Exception('Not authenticated');
@@ -120,6 +121,7 @@ class AuthService {
       'friend_code': friendCode,
       'avatar_url': avatarUrl,
       'bio': bio,
+      if (birthYear != null) 'birth_year': birthYear,
     };
 
     await _client.from('profiles').upsert(data);

@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../services/block_service.dart';
+import '../../../services/report_service.dart';
 import '../../../shared/models/friendship.dart';
+import '../../../shared/utils/throttle.dart';
+import '../../../shared/widgets/report_dialog.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../catalog/screens/catalog_detail_screen.dart';
 import '../../goods/screens/goods_detail_screen.dart';
@@ -31,7 +35,40 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
     final relationAsync = ref.watch(relationshipProvider(widget.userId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('프로필')),
+      appBar: AppBar(
+        title: const Text('프로필'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(PhosphorIconsBold.dotsThreeVertical),
+            onSelected: (value) {
+              if (value == 'block') _handleBlock();
+              if (value == 'report') _handleReportUser();
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    Icon(PhosphorIconsBold.warningCircle, size: 18, color: DuckColors.textSub),
+                    SizedBox(width: 8),
+                    Text('유저 신고'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'block',
+                child: Row(
+                  children: [
+                    Icon(PhosphorIconsBold.prohibit, size: 18, color: DuckColors.error),
+                    SizedBox(width: 8),
+                    Text('차단하기', style: TextStyle(color: DuckColors.error)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: profileAsync.when(
         data: (profile) {
           if (profile == null) {
@@ -77,13 +114,16 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                     const SizedBox(height: 12),
                     Row(
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
                           profile.nickname,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
+                        if (profile.isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(PhosphorIconsFill.sealCheck, size: 20, color: Color(0xFF4A9EFF)),
+                        ],
                         if (profile.friendCode.isNotEmpty)
                           Text(
                             '#${profile.friendCode}',
@@ -424,6 +464,10 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   }
 
   Future<void> _sendRequest() async {
+    if (!ActionThrottle.allowFriendRequest(widget.userId)) {
+      DuckSnackBar.error(context, '잠시 후 다시 시도해주세요');
+      return;
+    }
     setState(() => _actionLoading = true);
     try {
       await ref.read(friendServiceProvider).sendRequest(widget.userId);
@@ -478,6 +522,95 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
+  Future<void> _handleBlock() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('유저 차단'),
+        content: const Text(
+          '차단하면 상대의 피드, 프로필, 굿즈가 보이지 않으며 '
+          '기존 친구 관계도 해제됩니다.\n\n차단하시겠어요?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('차단', style: TextStyle(color: DuckColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(blockServiceProvider).blockUser(widget.userId);
+      ref.invalidate(blockedUserIdsProvider);
+      ref.invalidate(relationshipProvider(widget.userId));
+      ref.invalidate(friendsProvider);
+      if (mounted) {
+        DuckSnackBar.show(context, '차단했습니다');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) DuckSnackBar.error(context, '차단에 실패했어요');
+    }
+  }
+
+  Future<void> _handleReportUser() async {
+    // 중복 신고 사전 확인
+    try {
+      final alreadyReported =
+          await ref.read(reportServiceProvider).hasAlreadyReported(widget.userId);
+      if (alreadyReported) {
+        if (mounted) DuckSnackBar.info(context, '이미 신고한 유저입니다');
+        return;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final result = await ReportDialog.show(
+      context,
+      title: '유저 신고',
+      reportedUserId: widget.userId,
+    );
+
+    if (result == null || !mounted) return;
+
+    if (!ActionThrottle.allowReport()) {
+      if (mounted) DuckSnackBar.error(context, '잠시 후 다시 시도해주세요');
+      return;
+    }
+
+    try {
+      final reportResult = await ref.read(reportServiceProvider).reportAndBlock(
+            reportedUserId: widget.userId,
+            reason: result['reason']!,
+            description: result['description'],
+          );
+
+      if (reportResult.alreadyReported) {
+        if (mounted) DuckSnackBar.info(context, '이미 신고한 유저입니다');
+        return;
+      }
+
+      ref.invalidate(blockedUserIdsProvider);
+      ref.invalidate(relationshipProvider(widget.userId));
+      ref.invalidate(friendsProvider);
+
+      if (mounted) {
+        DuckSnackBar.show(context, '신고가 접수되고 해당 유저가 차단되었습니다');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) DuckSnackBar.error(context, '신고에 실패했어요');
     }
   }
 

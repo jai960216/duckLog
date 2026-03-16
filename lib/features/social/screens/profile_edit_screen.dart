@@ -7,6 +7,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../config/supabase_config.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
 
@@ -102,6 +103,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // 자기소개 금칙어 검사
+    final bio = _bioController.text.trim();
+    if (bio.isNotEmpty && ProfanityFilter.containsProfanity(bio)) {
+      DuckSnackBar.error(context, '자기소개에 부적절한 표현이 포함되어 있어요');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -274,7 +282,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 if (v == null || v.trim().isEmpty) return '닉네임을 입력해주세요';
                 if (v.trim().length < 2) return '2자 이상 입력해주세요';
                 if (v.trim().length > 12) return '12자 이하로 입력해주세요';
-                return null;
+                return ProfanityFilter.validate(v);
               },
             ),
             const SizedBox(height: 16),

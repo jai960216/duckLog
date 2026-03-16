@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/catalog_item.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../services/catalog_service.dart';
 
@@ -69,6 +70,12 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final desc = _descriptionController.text.trim();
+    if (desc.isNotEmpty && ProfanityFilter.containsProfanity(desc)) {
+      DuckSnackBar.error(context, '설명에 부적절한 표현이 포함되어 있어요');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -193,8 +200,10 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
                 label: '아이템 이름',
                 hint: '예: 탄지로 피규어 Vol.1',
                 controller: _nameController,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? '아이템 이름을 입력해주세요' : null,
+                validator: (v) {
+                if (v == null || v.trim().isEmpty) return '아이템 이름을 입력해주세요';
+                return ProfanityFilter.validate(v);
+              },
               ),
               const SizedBox(height: 16),
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../shared/utils/throttle.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/screens/goods_detail_screen.dart';
 import '../services/feed_service.dart';
@@ -69,9 +70,22 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
     return feedAsync.when(
       data: (items) {
         if (items.isEmpty) {
-          return DuckEmptyState(
-            message: emptyMessage,
-            icon: PhosphorIconsBold.usersThree,
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(provider);
+            },
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  child: DuckEmptyState(
+                    message: emptyMessage,
+                    icon: PhosphorIconsBold.usersThree,
+                  ),
+                ),
+              ),
+            ),
           );
         }
 
@@ -134,6 +148,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
 
   Future<void> _handleLike(
       String goodsId, bool currentlyLiked, int currentCount) async {
+    if (!ActionThrottle.allowLike(goodsId)) return;
+
     // Optimistic update
     setState(() {
       _likeStates[goodsId] = !currentlyLiked;

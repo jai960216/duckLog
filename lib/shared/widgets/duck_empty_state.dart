@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lottie/lottie.dart';
 import '../../config/colors.dart';
 
 class DuckEmptyState extends StatelessWidget {
@@ -24,10 +24,11 @@ class DuckEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon ?? PhosphorIconsBold.question,
-              size: 48,
-              color: DuckColors.textLight,
+            Lottie.asset(
+              'assets/lottie/duck_empty.json',
+              width: 120,
+              height: 120,
+              fit: BoxFit.contain,
             ),
             const SizedBox(height: 16),
             Text(

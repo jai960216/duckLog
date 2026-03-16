@@ -7,6 +7,7 @@ import '../../../shared/models/profile.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/duck_card.dart';
 import '../../../shared/widgets/duck_chip.dart';
+import '../../../shared/widgets/duck_heart_button.dart';
 
 class FeedGoodsCard extends StatelessWidget {
   final Goods goods;
@@ -46,9 +47,17 @@ class FeedGoodsCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        owner.nickname,
-                        style: Theme.of(context).textTheme.titleSmall,
+                      Row(
+                        children: [
+                          Text(
+                            owner.nickname,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          if (owner.isVerified) ...[
+                            const SizedBox(width: 3),
+                            const Icon(PhosphorIconsFill.sealCheck, size: 14, color: Color(0xFF4A9EFF)),
+                          ],
+                        ],
                       ),
                       if (goods.purchasedAt != null)
                         Text(
@@ -132,29 +141,11 @@ class FeedGoodsCard extends StatelessWidget {
               ],
               const Spacer(),
               // Like button
-              GestureDetector(
+              DuckHeartButton(
+                isLiked: isLiked,
+                likeCount: likeCount,
                 onTap: onLikeTap,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isLiked
-                          ? PhosphorIconsFill.heart
-                          : PhosphorIconsBold.heart,
-                      size: 20,
-                      color: isLiked ? DuckColors.error : DuckColors.textSub,
-                    ),
-                    if (likeCount > 0) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '$likeCount',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: DuckColors.textSub,
-                            ),
-                      ),
-                    ],
-                  ],
-                ),
+                size: 20,
               ),
             ],
           ),

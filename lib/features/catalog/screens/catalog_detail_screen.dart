@@ -6,6 +6,7 @@ import '../../../config/colors.dart';
 import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
 import '../services/catalog_service.dart';
@@ -484,6 +485,10 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     Future.delayed(const Duration(milliseconds: 300), nameController.dispose);
 
     if (result != null && result.isNotEmpty) {
+      if (ProfanityFilter.containsProfanity(result)) {
+        if (mounted) DuckSnackBar.error(context, '부적절한 표현이 포함되어 있어요');
+        return;
+      }
       final service = ref.read(catalogServiceProvider);
       await service.addCharacter(
         catalogId: widget.catalogId,
@@ -562,6 +567,10 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     Future.delayed(const Duration(milliseconds: 300), nameController.dispose);
 
     if (result != null && result.isNotEmpty) {
+      if (ProfanityFilter.containsProfanity(result)) {
+        if (mounted) DuckSnackBar.error(context, '부적절한 표현이 포함되어 있어요');
+        return;
+      }
       final service = ref.read(catalogServiceProvider);
       await service.updateCharacter(ch.id, {'name': result});
       ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));

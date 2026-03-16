@@ -14,6 +14,7 @@ import '../../goods/services/goods_service.dart';
 import '../../goods/screens/receipt_list_screen.dart';
 import '../../stats/screens/stats_screen.dart';
 import '../services/friend_service.dart';
+import 'block_list_screen.dart';
 import 'friend_list_screen.dart';
 import 'legal_screen.dart';
 import 'notification_settings_screen.dart';
@@ -84,9 +85,17 @@ class MyPageScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              profile.nickname,
-                              style: Theme.of(context).textTheme.titleMedium,
+                            Row(
+                              children: [
+                                Text(
+                                  profile.nickname,
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                if (profile.isVerified) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(PhosphorIconsFill.sealCheck, size: 18, color: Color(0xFF4A9EFF)),
+                                ],
+                              ],
                             ),
                             if (profile.bio != null &&
                                 profile.bio!.isNotEmpty) ...[
@@ -229,6 +238,17 @@ class MyPageScreen extends ConsumerWidget {
               Navigator.of(context).push(
                 MaterialPageRoute(
                     builder: (_) => const NotificationSettingsScreen()),
+              );
+            },
+          ),
+          _menuItem(
+            context,
+            icon: PhosphorIconsBold.prohibit,
+            label: '차단 관리',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const BlockListScreen()),
               );
             },
           ),

@@ -170,11 +170,43 @@ CREATE TABLE friendships (
 );
 ```
 
+-- 유저 차단
+CREATE TABLE blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blocker_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  blocked_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(blocker_id, blocked_id)
+);
+
+-- 유저/콘텐츠 신고
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  reported_user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  reported_goods_id UUID REFERENCES goods(id) ON DELETE SET NULL,
+  reason TEXT NOT NULL,          -- inappropriate, spam, harassment, impersonation, other
+  description TEXT,
+  status TEXT DEFAULT 'pending', -- pending, reviewed, resolved, dismissed
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(reporter_id, reported_user_id)  -- 동일 유저 중복 신고 영구 차단
+);
+```
+
+### profiles 확장 컬럼
+- `birth_year INTEGER` — 연령 확인 (만14세 이상)
+- `is_verified BOOLEAN DEFAULT false` — 공식 계정 파란체크 배지
+- `is_suspended BOOLEAN DEFAULT false` — 누적 신고 자동 정지
+- `friend_code TEXT` — 친구 추가용 고유 코드
+
 ### RLS (Row Level Security) 정책
-- `goods`: 본인 것은 CRUD 가능. 타인 것은 visibility 규칙에 따라 SELECT만
-- `profiles`: 본인 것은 UPDATE 가능. is_public=true인 프로필은 누구나 SELECT
+- `goods`: 본인 것은 CRUD 가능. 타인 것은 visibility 규칙에 따라 SELECT만. 차단/정지 유저 제외
+- `profiles`: 본인 것은 UPDATE 가능. is_public=true이고 차단/정지되지 않은 프로필만 SELECT
+- `catalogs`: goods와 동일한 visibility + 차단/정지 필터링
 - `likes`: 본인이 생성/삭제 가능
 - `friendships`: 관련 당사자만 접근
+- `blocks`: 본인이 생성한 차단만 관리 가능
+- `reports`: 본인이 생성한 신고만 INSERT/SELECT 가능
 
 ---
 
@@ -299,13 +331,31 @@ TextSub:     #999999  (보조 텍스트)
 - [x] 프로필 공유 (친구 코드 기반)
 
 ### Phase 7: 폴리싱 & 출시 준비 (2주)
-- [ ] Lottie 애니메이션 적용 (로딩, 빈 상태, 좋아요 등) — 의존성 설치됨, 에셋 미적용
+- [x] Lottie 애니메이션 적용 — 오리 로딩/빈 상태/좋아요 하트 에셋 + DuckLoading, DuckHeartButton 위젯
 - [x] 에러 핸들링 & 엣지 케이스 처리
 - [x] 성능 최적화 (이미지 캐싱, 페이지네이션, 스켈레톤 로더)
 - [x] 개인정보처리방침 작성 + 웹 호스팅 (GitHub Pages)
 - [x] 서비스 이용약관 작성
-- [ ] 결제 약관 작성 (인앱 구매 관련) — Pro 구독 도입 시 작성
+- [x] 결제 약관 작성 — 이용약관 제7조에 유료 서비스/구독/환불/청약철회 조항 추가
 - [x] 앱 내 약관 동의 화면
+- [x] 굿즈 오프라인 임시 저장 (Hive) — DraftService + 자동 저장/복원 다이얼로그
+- [x] Firebase Analytics + Crashlytics — 화면 추적 + 크래시 리포팅 (디버그 모드 비활성화)
+- [x] KakaoPage 크롤러 Edge Function 삭제 (403 차단, 공식 API 없음 — 의도적 차단으로 제외)
+- [x] Render + UptimeRobot 삭제 완료
+- [x] 안전 기능 (Google Play UGC 정책 준수)
+  - [x] 유저 차단/해제 — BlockService + 차단 관리 화면
+  - [x] 콘텐츠/유저 신고 — 신고 다이얼로그 + 사유 선택
+  - [x] 연령 확인 (만14세) — 온보딩 출생연도 입력 + 자기보고식 연령 게이트
+  - [x] 공식 배지 (블루체크) — is_verified 플래그 + Supabase 대시보드에서 수동 부여
+  - [x] 스팸 방지 — ActionThrottle (좋아요 1초, 친구요청 5초, 신고 30초)
+  - [x] 금칙어 필터링 — ProfanityFilter (한국어/영어 ~90개 금칙어, 특수문자 우회 방지)
+    - 적용: 닉네임, 바이오, 굿즈명/메모/태그, 도감명/설명/작품태그, 아이템명/설명, 캐릭터명
+  - [x] 신고 처리 시스템
+    - 신고 → 자동 차단 (report_and_block RPC 원자적 처리)
+    - 동일 유저 중복 신고 영구 차단 (차단/해제는 자유)
+    - 누적 3명 신고 → 자동 정지 (is_suspended + 프로필 비공개)
+    - 정지 화면 + 이의제기 (이메일 발송)
+    - 관리자 대시보드 (Edge Function — 신고 목록/기각/정지/해제)
 - [ ] Play Store 메타데이터 준비 (스크린샷, 설명, 데이터 안전 섹션)
 - [ ] IARC 콘텐츠 등급 설문
 - [ ] Google Play 출시
@@ -564,6 +614,14 @@ lib/
 - [ ] Play Store 데이터 안전 섹션 작성
 - [ ] IARC 콘텐츠 등급 설문
 
+### 🟠 출시 전 완료 항목
+- [x] Lottie 애니메이션 적용 — 오리 로딩/빈 상태/좋아요 하트 Lottie 에셋 + 위젯
+- [x] 굿즈 오프라인 임시 저장 (Hive) — DraftService 자동 저장/복원
+- [x] 결제 약관 작성 — 이용약관 제7조에 유료 서비스/구독/환불 조항 추가
+- [x] Firebase Analytics + Crashlytics — 화면 추적 + 크래시 리포팅
+- [x] KakaoPage 크롤러 Edge Function 삭제
+- [x] Render + UptimeRobot 삭제 완료
+
 ### 🟠 코드 품질 (출시 전 해결 권장)
 - [x] debugPrint 정리 — FCM/main만 kDebugMode 가드, 나머지 45개 중 36개 제거
 - [x] 에러 핸들링 개선 — 7개 Provider의 try-catch 제거, Riverpod error 상태로 전파
@@ -575,13 +633,10 @@ lib/
 - **2026-03-12**: debugPrint 정리 (36개 제거, FCM/main kDebugMode 가드), Provider 에러 전파 개선 (7개), 개인정보처리방침/이용약관 GitHub Pages 배포, 레포 public 전환
 - **2026-03-13**: 스켈레톤 로더 추가 (shimmer 위젯 + 5개 화면), 네트워크 재시도 로직 (HttpRetry 유틸 + 6개 외부 API 서비스)
 - **2026-03-14**: 웹툰 API Render→Supabase Edge Function 이전 (Naver/Kakao 크롤러 + webtoons 테이블), 카카오 로그인 플랫폼 등록, Twitch redirect URL 등록, Google OAuth 앱 게시(프로덕션)
+- **2026-03-16**: KakaoPage 크롤러 삭제, Firebase Analytics + Crashlytics, Lottie 애니메이션, 굿즈 드래프트 저장, 결제 약관, 유저 차단/신고/콘텐츠 신고 시스템, 연령 확인 (만14세), 공식 배지 (블루체크), 스팸 방지 (ActionThrottle), 차단 관리 화면
+- **2026-03-17**: 욕설 필터링 (ProfanityFilter ~90개 금칙어, 전 입력필드 적용), 신고 시스템 고도화 (신고→자동차단, 중복신고 영구방지, 3회 누적 자동정지, 이의제기 이메일), 계정 정지 화면 (SuspensionScreen), 관리자 대시보드 Edge Function (신고 목록/정지 유저 관리), report_and_block RPC 원자적 처리, RLS 정책 정지유저 제외
 
 ### 🟡 출시 후 개선
 - [x] 네트워크 재시도 로직 — HttpRetry 공통 유틸 + IGDB/Pokemon/MTG/Yu-Gi-Oh/Digimon/MFC 6개 서비스 적용
-- [ ] 오프라인 모드 (Hive 캐싱) — 굿즈 입력 오프라인 임시 저장
 - [x] 스켈레톤 로더 추가 — DuckSkeleton shimmer 위젯 + 홈/굿즈/피드/도감/캘린더 5개 화면 적용
-- [ ] Lottie 애니메이션 — 오리 마스코트 로딩/빈 상태/좋아요 애니메이션
-- [ ] KakaoPage 웹툰 크롤러 — 현재 403 차단, 대안 필요
-- [ ] Firebase Analytics / Sentry 크래시 리포팅
 - [ ] CI/CD 파이프라인 구축
-- [ ] Render + UptimeRobot 삭제 (Supabase 이전 완료 확인 후)

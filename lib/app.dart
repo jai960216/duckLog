@@ -1,11 +1,14 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/colors.dart';
 import 'config/theme.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/onboarding_screen.dart';
 import 'features/auth/services/auth_service.dart';
+import 'features/social/screens/suspension_screen.dart';
 import 'services/fcm_service.dart';
 import 'shell.dart';
 
@@ -30,13 +33,11 @@ class _SplashScreen extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 24),
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                color: DuckColors.primary,
-                strokeWidth: 2.5,
-              ),
+            Lottie.asset(
+              'assets/lottie/duck_loading.json',
+              width: 80,
+              height: 80,
+              fit: BoxFit.contain,
             ),
           ],
         ),
@@ -54,6 +55,9 @@ class DuckLogApp extends ConsumerWidget {
       title: 'DuckLog',
       debugShowCheckedModeBanner: false,
       theme: DuckTheme.light,
+      navigatorObservers: [
+        FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+      ],
       home: const AuthGate(),
     );
   }
@@ -105,6 +109,12 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
       data: (profile) {
         if (profile == null) {
           return const OnboardingScreen();
+        }
+        if (profile.isSuspended) {
+          return SuspensionScreen(
+            userId: profile.id,
+            nickname: profile.nickname,
+          );
         }
         _initFcm();
         return const AppShell();

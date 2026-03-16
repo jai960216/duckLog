@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/catalog.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../services/catalog_service.dart';
 
@@ -69,6 +70,18 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // 추가 텍스트 필드 금칙어 검사
+    final fieldsToCheck = {
+      '설명': _descriptionController.text.trim(),
+      '작품/콘텐츠': _workTagController.text.trim(),
+    };
+    for (final entry in fieldsToCheck.entries) {
+      if (entry.value.isNotEmpty && ProfanityFilter.containsProfanity(entry.value)) {
+        DuckSnackBar.error(context, '${entry.key}에 부적절한 표현이 포함되어 있어요');
+        return;
+      }
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -145,8 +158,10 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
               label: '도감 이름',
               hint: '예: 귀멸의 칼날 피규어 컬렉션',
               controller: _nameController,
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? '도감 이름을 입력해주세요' : null,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return '도감 이름을 입력해주세요';
+                return ProfanityFilter.validate(v);
+              },
             ),
             const SizedBox(height: 16),
 

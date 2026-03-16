@@ -6,6 +6,9 @@ class Profile {
   final String? bio;
   final Map<String, String> snsLinks;
   final bool isPublic;
+  final int? birthYear;
+  final bool isVerified;
+  final bool isSuspended;
   final DateTime createdAt;
 
   const Profile({
@@ -16,6 +19,9 @@ class Profile {
     this.bio,
     this.snsLinks = const {},
     this.isPublic = true,
+    this.birthYear,
+    this.isVerified = false,
+    this.isSuspended = false,
     required this.createdAt,
   });
 
@@ -35,6 +41,9 @@ class Profile {
             )
           : {},
       isPublic: json['is_public'] as bool? ?? true,
+      birthYear: json['birth_year'] as int?,
+      isVerified: json['is_verified'] as bool? ?? false,
+      isSuspended: json['is_suspended'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -58,6 +67,9 @@ class Profile {
     String? bio,
     Map<String, String>? snsLinks,
     bool? isPublic,
+    int? birthYear,
+    bool? isVerified,
+    bool? isSuspended,
   }) {
     return Profile(
       id: id,
@@ -67,6 +79,9 @@ class Profile {
       bio: bio ?? this.bio,
       snsLinks: snsLinks ?? this.snsLinks,
       isPublic: isPublic ?? this.isPublic,
+      birthYear: birthYear ?? this.birthYear,
+      isVerified: isVerified ?? this.isVerified,
+      isSuspended: isSuspended ?? this.isSuspended,
       createdAt: createdAt,
     );
   }

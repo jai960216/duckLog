@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   bio TEXT,
   sns_links JSONB DEFAULT '{}',
   is_public BOOLEAN DEFAULT true,
+  birth_year INTEGER,                -- 출생연도 (연령 확인용)
+  is_verified BOOLEAN DEFAULT false, -- 공식 계정 배지
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -99,6 +101,27 @@ CREATE TABLE IF NOT EXISTS friendships (
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(requester_id, receiver_id)
+);
+
+-- 유저 차단
+CREATE TABLE IF NOT EXISTS blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blocker_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  blocked_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(blocker_id, blocked_id)
+);
+
+-- 신고
+CREATE TABLE IF NOT EXISTS reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  reported_user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  reported_goods_id UUID REFERENCES goods(id) ON DELETE SET NULL,
+  reason TEXT NOT NULL,          -- inappropriate, spam, harassment, impersonation, other
+  description TEXT,
+  status TEXT DEFAULT 'pending', -- pending, reviewed, resolved, dismissed
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- 도감

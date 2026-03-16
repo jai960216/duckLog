@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/colors.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../services/auth_service.dart';
 
@@ -14,16 +15,28 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
+  final _birthYearController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _nicknameController.dispose();
+    _birthYearController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final birthYear = int.tryParse(_birthYearController.text.trim());
+    if (birthYear == null) return;
+
+    final currentYear = DateTime.now().year;
+    final age = currentYear - birthYear;
+    if (age < 14) {
+      DuckSnackBar.error(context, '만 14세 미만은 서비스를 이용할 수 없어요');
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
@@ -31,8 +44,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
       await ref.read(authServiceProvider).upsertProfile(
             nickname: nickname,
+            birthYear: birthYear,
           );
-      // 프로필 생성 후 ProfileGate가 다시 체크하도록 갱신
       ref.invalidate(currentProfileProvider);
     } catch (e) {
       if (mounted) {
@@ -95,7 +108,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '덕질 기록을 시작하기 전에\n닉네임을 정해주세요.',
+                  '덕질 기록을 시작하기 전에\n간단한 정보를 입력해주세요.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: DuckColors.textSub,
                       ),
@@ -116,8 +129,38 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     if (value.trim().length > 12) {
                       return '12자 이하로 입력해주세요';
                     }
+                    return ProfanityFilter.validate(value);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                DuckTextField(
+                  label: '출생연도',
+                  hint: '예: 2000',
+                  controller: _birthYearController,
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '출생연도를 입력해주세요';
+                    }
+                    final year = int.tryParse(value.trim());
+                    if (year == null) return '숫자로 입력해주세요';
+                    final currentYear = DateTime.now().year;
+                    if (year < 1900 || year > currentYear) {
+                      return '올바른 연도를 입력해주세요';
+                    }
+                    if (currentYear - year < 14) {
+                      return '만 14세 이상만 이용할 수 있어요';
+                    }
                     return null;
                   },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '만 14세 이상만 서비스를 이용할 수 있습니다.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: DuckColors.textSub,
+                      ),
                 ),
 
                 const Spacer(),

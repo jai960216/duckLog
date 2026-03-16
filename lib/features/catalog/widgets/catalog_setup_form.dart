@@ -4,6 +4,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../screens/anilist_character_picker_screen.dart';
 
@@ -116,9 +117,28 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // 작품태그 + 캐릭터/아이템 이름 금칙어 검사
+    final workTag = _workTagController.text.trim();
+    if (workTag.isNotEmpty && ProfanityFilter.containsProfanity(workTag)) {
+      DuckSnackBar.error(context, '작품/콘텐츠에 부적절한 표현이 포함되어 있어요');
+      return;
+    }
+    for (final ch in _characters) {
+      if (ProfanityFilter.containsProfanity(ch.name)) {
+        DuckSnackBar.error(context, '캐릭터 이름에 부적절한 표현이 포함되어 있어요');
+        return;
+      }
+      for (final item in ch.items) {
+        if (ProfanityFilter.containsProfanity(item.name)) {
+          DuckSnackBar.error(context, '아이템 이름에 부적절한 표현이 포함되어 있어요');
+          return;
+        }
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
-      final workTag = _workTagController.text.trim();
       await widget.onSubmit(
         name: _nameController.text.trim(),
         category: _selectedCategory,
@@ -256,8 +276,10 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
                 label: '도감 이름',
                 hint: '예: 귀멸의 칼날 피규어 컬렉션',
                 controller: _nameController,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? '도감 이름을 입력해주세요' : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return '도감 이름을 입력해주세요';
+                  return ProfanityFilter.validate(v);
+                },
               ),
               const SizedBox(height: 16),
               DuckTextField(

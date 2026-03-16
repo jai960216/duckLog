@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../services/draft_service.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../catalog/services/catalog_service.dart';
 import '../services/goods_service.dart';
@@ -62,11 +64,90 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
         _linkedCatalogItemId = g.catalogItemId;
         _loadLinkedCatalogInfo(g.catalogItemId!);
       }
+    } else {
+      _loadDraft();
     }
+  }
+
+  Future<void> _loadDraft() async {
+    final draft = await DraftService.loadDraft();
+    if (draft == null || !mounted) return;
+
+    final shouldRestore = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('임시 저장된 기록이 있어요'),
+        content: const Text('이전에 작성하던 내용을 불러올까요?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              DraftService.clearDraft();
+              Navigator.pop(ctx, false);
+            },
+            child: const Text('삭제'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('불러오기'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRestore != true || !mounted) return;
+
+    setState(() {
+      _nameController.text = draft['name'] as String;
+      _priceController.text = draft['price'] as String;
+      _workTagController.text = draft['workTag'] as String;
+      _artistTagController.text = draft['artistTag'] as String;
+      _purchasePlaceController.text = draft['purchasePlace'] as String;
+      _memoController.text = draft['memo'] as String;
+      final cat = draft['category'] as String;
+      if (cat.isNotEmpty) _selectedCategory = cat;
+      final dateStr = draft['purchasedAt'] as String;
+      if (dateStr.isNotEmpty) _purchasedAt = DateTime.tryParse(dateStr);
+      final vis = draft['visibility'] as String;
+      if (vis.isNotEmpty) _visibility = vis;
+      final catItemId = draft['catalogItemId'] as String;
+      if (catItemId.isNotEmpty) {
+        _linkedCatalogItemId = catItemId;
+        _linkedCatalogId = (draft['catalogId'] as String).isEmpty
+            ? null
+            : draft['catalogId'] as String;
+        _linkedItemName = (draft['catalogItemName'] as String).isEmpty
+            ? null
+            : draft['catalogItemName'] as String;
+        _linkedCatalogName = (draft['catalogName'] as String).isEmpty
+            ? null
+            : draft['catalogName'] as String;
+      }
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    if (_isEditing) return;
+    if (_nameController.text.trim().isEmpty) return;
+    await DraftService.saveDraft(
+      name: _nameController.text.trim(),
+      price: _priceController.text,
+      category: _selectedCategory,
+      workTag: _workTagController.text.trim(),
+      artistTag: _artistTagController.text.trim(),
+      purchasePlace: _purchasePlaceController.text.trim(),
+      memo: _memoController.text.trim(),
+      purchasedAt: _purchasedAt?.toIso8601String(),
+      visibility: _visibility,
+      catalogItemId: _linkedCatalogItemId,
+      catalogId: _linkedCatalogId,
+      catalogItemName: _linkedItemName,
+      catalogName: _linkedCatalogName,
+    );
   }
 
   @override
   void dispose() {
+    _saveDraft();
     _nameController.dispose();
     _priceController.dispose();
     _workTagController.dispose();
@@ -191,6 +272,20 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // 추가 텍스트 필드 금칙어 검사
+    final fieldsToCheck = {
+      '메모': _memoController.text.trim(),
+      '작품/콘텐츠': _workTagController.text.trim(),
+      '아티스트/캐릭터': _artistTagController.text.trim(),
+      '구매 장소': _purchasePlaceController.text.trim(),
+    };
+    for (final entry in fieldsToCheck.entries) {
+      if (entry.value.isNotEmpty && ProfanityFilter.containsProfanity(entry.value)) {
+        DuckSnackBar.error(context, '${entry.key}에 부적절한 표현이 포함되어 있어요');
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
       final service = ref.read(goodsServiceProvider);
@@ -271,12 +366,17 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
         }
       }
 
+      // 저장 성공 시 드래프트 삭제
+      await DraftService.clearDraft();
+
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         DuckSnackBar.error(context, '저장에 실패했어요');
+        // 저장 실패 시 드래프트 보존
+        _saveDraft();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -307,8 +407,10 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
               label: '품목명',
               hint: '어떤 굿즈인가요?',
               controller: _nameController,
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? '품목명을 입력해주세요' : null,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return '품목명을 입력해주세요';
+                return ProfanityFilter.validate(v);
+              },
             ),
             const SizedBox(height: 16),
 

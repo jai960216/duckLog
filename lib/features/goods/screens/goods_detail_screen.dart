@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
+import '../../../services/report_service.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/formatters.dart';
+import '../../../shared/utils/throttle.dart';
+import '../../../shared/widgets/report_dialog.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../catalog/screens/catalog_detail_screen.dart';
 import '../../catalog/services/catalog_service.dart';
@@ -40,6 +43,15 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
       appBar: AppBar(
         title: const Text('굿즈 상세'),
         actions: [
+          if (widget.readOnly)
+            goodsAsync.whenOrNull(
+                  data: (goods) => IconButton(
+                    icon: const Icon(PhosphorIconsBold.warningCircle),
+                    onPressed: () => _handleReportGoods(goods),
+                    tooltip: '신고',
+                  ),
+                ) ??
+                const SizedBox.shrink(),
           if (!widget.readOnly)
             goodsAsync.whenOrNull(
                   data: (goods) => PopupMenuButton<String>(
@@ -190,20 +202,20 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
           onTap: () => _handleLike(goods.id, isLiked, likeCount),
           child: Row(
             children: [
-              Icon(
-                isLiked
-                    ? PhosphorIconsFill.heart
-                    : PhosphorIconsBold.heart,
+              DuckHeartButton(
+                isLiked: isLiked,
+                likeCount: likeCount,
                 size: 22,
-                color: DuckColors.error,
               ),
-              const SizedBox(width: 8),
-              Text(
-                likeCount > 0 ? '좋아요 $likeCount개' : '좋아요',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
+              if (likeCount == 0) ...[
+                const SizedBox(width: 4),
+                Text(
+                  '좋아요',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ],
           ),
         ),
@@ -386,6 +398,54 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
         return '비공개';
       default:
         return visibility;
+    }
+  }
+
+  Future<void> _handleReportGoods(Goods goods) async {
+    // 중복 신고 사전 확인
+    try {
+      final alreadyReported =
+          await ref.read(reportServiceProvider).hasAlreadyReported(goods.userId);
+      if (alreadyReported) {
+        if (mounted) DuckSnackBar.info(context, '이미 신고한 유저입니다');
+        return;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final result = await ReportDialog.show(
+      context,
+      title: '굿즈 신고',
+      reportedGoodsId: goods.id,
+    );
+
+    if (result == null || !mounted) return;
+
+    if (!ActionThrottle.allowReport()) {
+      if (mounted) DuckSnackBar.error(context, '잠시 후 다시 시도해주세요');
+      return;
+    }
+
+    try {
+      final reportResult = await ref.read(reportServiceProvider).reportAndBlock(
+            reportedUserId: goods.userId,
+            reportedGoodsId: goods.id,
+            reason: result['reason']!,
+            description: result['description'],
+          );
+
+      if (reportResult.alreadyReported) {
+        if (mounted) DuckSnackBar.info(context, '이미 신고한 유저입니다');
+        return;
+      }
+
+      if (mounted) {
+        DuckSnackBar.show(context, '신고가 접수되고 해당 유저가 차단되었습니다');
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) DuckSnackBar.error(context, '신고에 실패했어요');
     }
   }
 
