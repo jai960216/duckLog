@@ -62,3 +62,8 @@ ios/Runner/GoogleService-Info.plist
 
 # Bug reports
 bugreport-*.zip
+
+# Project docs (local only)
+DuckLog_계획서.md
+관리자.txt
+supabase/.temp/
