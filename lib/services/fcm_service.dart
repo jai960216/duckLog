@@ -151,11 +151,14 @@ class FcmService {
     }
   }
 
-  /// 포그라운드 메시지 → 로컬 알림으로 직접 표시
+  /// 포그라운드 메시지 → 로컬 알림으로 직접 표시 + Hive에 저장
   void _handleForegroundMessage(RemoteMessage message) {
     if (kDebugMode) debugPrint('[FCM] Foreground: ${message.notification?.title}');
     final notification = message.notification;
     if (notification == null) return;
+
+    // Hive에 알림 저장
+    _saveNotification(message);
 
     _localNotifications.show(
       notification.hashCode,
@@ -174,8 +177,30 @@ class FcmService {
     );
   }
 
+  /// 알림을 Hive에 저장 (최대 100개)
+  Future<void> _saveNotification(RemoteMessage message) async {
+    try {
+      final box = await Hive.openBox('notifications');
+      await box.add({
+        'title': message.notification?.title ?? '',
+        'body': message.notification?.body ?? '',
+        'type': message.data['type'],
+        'timestamp': DateTime.now().toIso8601String(),
+        'is_read': false,
+        'data': message.data,
+      });
+      // 100개 초과 시 오래된 것 삭제
+      while (box.length > 100) {
+        await box.deleteAt(0);
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FCM] Save notification failed: $e');
+    }
+  }
+
   /// 알림 탭 처리
   void _handleMessageTap(RemoteMessage message) {
     if (kDebugMode) debugPrint('[FCM] Tapped: ${message.data}');
+    _saveNotification(message);
   }
 }

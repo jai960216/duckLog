@@ -16,7 +16,7 @@ import 'features/calendar/services/calendar_service.dart';
 import 'features/goods/screens/goods_input_screen.dart';
 import 'features/goods/screens/receipt_scan_screen.dart';
 import 'features/goods/services/goods_service.dart';
-import 'features/social/screens/notification_settings_screen.dart';
+import 'features/social/screens/notification_list_screen.dart';
 import 'shared/utils/formatters.dart';
 import 'shared/widgets/widgets.dart';
 
@@ -377,7 +377,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                      builder: (_) => const NotificationSettingsScreen()),
+                      builder: (_) => const NotificationListScreen()),
                 );
               },
             ),
