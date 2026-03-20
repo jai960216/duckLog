@@ -59,13 +59,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     super.dispose();
   }
 
-  String? _validateSnsUrl(String? value) {
+  String? _validateSnsId(String? value) {
     if (value == null || value.trim().isEmpty) return null;
-    final trimmed = value.trim();
-    if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
-      return 'URL은 https:// 또는 http://로 시작해야 해요';
+    final trimmed = value.trim().replaceAll('@', '');
+    if (!RegExp(r'^[a-zA-Z0-9_.]+$').hasMatch(trimmed)) {
+      return '영문, 숫자, 밑줄(_), 마침표(.)만 사용할 수 있어요';
     }
     return null;
+  }
+
+  /// @나 URL이 섞여 들어와도 아이디만 추출
+  String _extractUsername(String input) {
+    var trimmed = input.trim();
+    // URL 형태면 마지막 경로를 추출
+    if (trimmed.contains('instagram.com/') || trimmed.contains('twitter.com/') || trimmed.contains('x.com/')) {
+      trimmed = Uri.tryParse(trimmed)?.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => trimmed) ?? trimmed;
+    }
+    // @ 제거
+    return trimmed.replaceAll('@', '');
   }
 
   Future<void> _pickAvatar() async {
@@ -132,10 +143,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
       final snsLinks = <String, String>{};
       if (_instagramController.text.trim().isNotEmpty) {
-        snsLinks['instagram'] = _instagramController.text.trim();
+        snsLinks['instagram'] = _extractUsername(_instagramController.text);
       }
       if (_twitterController.text.trim().isNotEmpty) {
-        snsLinks['twitter'] = _twitterController.text.trim();
+        snsLinks['twitter'] = _extractUsername(_twitterController.text);
       }
 
       await client.from('profiles').update({
@@ -343,28 +354,28 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ),
             const SizedBox(height: 24),
 
-            Text('SNS 링크', style: Theme.of(context).textTheme.titleSmall),
+            Text('SNS', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
 
             DuckTextField(
-              hint: 'Instagram 프로필 URL',
+              hint: 'Instagram 아이디',
               controller: _instagramController,
               prefix: const Padding(
                 padding: EdgeInsets.only(left: 16),
                 child: Icon(PhosphorIconsBold.instagramLogo, size: 18),
               ),
-              validator: _validateSnsUrl,
+              validator: _validateSnsId,
             ),
             const SizedBox(height: 12),
 
             DuckTextField(
-              hint: 'X(Twitter) 프로필 URL',
+              hint: 'X(Twitter) 아이디',
               controller: _twitterController,
               prefix: const Padding(
                 padding: EdgeInsets.only(left: 16),
                 child: Icon(PhosphorIconsBold.xLogo, size: 18),
               ),
-              validator: _validateSnsUrl,
+              validator: _validateSnsId,
             ),
             const SizedBox(height: 24),
 

@@ -73,5 +73,72 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  // 유저 검색
+  if (action === "search_users") {
+    const query = url.searchParams.get("query") || "";
+    if (!query.trim()) return json([]);
+    const { data, error } = await client
+      .from("profiles")
+      .select("id, nickname, avatar_url, is_verified, is_suspended")
+      .or(`nickname.ilike.%${query}%,friend_code.eq.${query}`)
+      .limit(20);
+    if (error) return json({ error: error.message }, 500);
+    return json(data);
+  }
+
+  // 공식 배지 토글
+  if (req.method === "POST" && action === "set_verified") {
+    const userId = url.searchParams.get("user_id");
+    const verified = url.searchParams.get("verified") === "true";
+    if (!userId) return json({ error: "user_id required" }, 400);
+    const { error } = await client
+      .from("profiles")
+      .update({ is_verified: verified })
+      .eq("id", userId);
+    if (error) return json({ error: error.message }, 500);
+    return json({ ok: true });
+  }
+
+  // 구독 목록
+  if (action === "subscriptions") {
+    const { data, error } = await client
+      .from("subscriptions")
+      .select("*, profiles!inner(nickname)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) return json({ error: error.message }, 500);
+    return json(data);
+  }
+
+  // 구독 부여/해제
+  if (req.method === "POST" && action === "set_subscription") {
+    const userId = url.searchParams.get("user_id");
+    const plan = url.searchParams.get("plan"); // "pro" or "free"
+    if (!userId) return json({ error: "user_id required" }, 400);
+
+    if (plan === "pro") {
+      const endDate = new Date();
+      endDate.setFullYear(endDate.getFullYear() + 1);
+      const { error } = await client
+        .from("subscriptions")
+        .upsert({
+          user_id: userId,
+          plan: "pro",
+          status: "active",
+          source: "admin",
+          current_period_start: new Date().toISOString(),
+          current_period_end: endDate.toISOString(),
+        }, { onConflict: "user_id" });
+      if (error) return json({ error: error.message }, 500);
+    } else {
+      const { error } = await client
+        .from("subscriptions")
+        .delete()
+        .eq("user_id", userId);
+      if (error) return json({ error: error.message }, 500);
+    }
+    return json({ ok: true });
+  }
+
   return json({ error: "unknown action" }, 400);
 });

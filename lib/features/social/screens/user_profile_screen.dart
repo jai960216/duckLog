@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -150,36 +151,48 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                       const SizedBox(height: 8),
                       if (profile.snsLinks['instagram'] != null &&
                           profile.snsLinks['instagram']!.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(PhosphorIconsBold.instagramLogo,
-                                size: 14, color: DuckColors.textSub),
-                            const SizedBox(width: 4),
-                            Text(
-                              profile.snsLinks['instagram']!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: DuckColors.textSub,
-                                  ),
-                            ),
-                          ],
+                        GestureDetector(
+                          onTap: () => launchUrl(
+                            Uri.parse('https://instagram.com/${profile.snsLinks['instagram']}'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(PhosphorIconsBold.instagramLogo,
+                                  size: 14, color: DuckColors.textSub),
+                              const SizedBox(width: 4),
+                              Text(
+                                '@${profile.snsLinks['instagram']!}',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: DuckColors.textSub,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       if (profile.snsLinks['twitter'] != null &&
                           profile.snsLinks['twitter']!.isNotEmpty) ...[
                         const SizedBox(height: 2),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(PhosphorIconsBold.xLogo,
-                                size: 14, color: DuckColors.textSub),
-                            const SizedBox(width: 4),
-                            Text(
-                              profile.snsLinks['twitter']!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: DuckColors.textSub,
-                                  ),
-                            ),
-                          ],
+                        GestureDetector(
+                          onTap: () => launchUrl(
+                            Uri.parse('https://x.com/${profile.snsLinks['twitter']}'),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(PhosphorIconsBold.xLogo,
+                                  size: 14, color: DuckColors.textSub),
+                              const SizedBox(width: 4),
+                              Text(
+                                '@${profile.snsLinks['twitter']!}',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: DuckColors.textSub,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ],
