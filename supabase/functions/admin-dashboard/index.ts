@@ -5,6 +5,30 @@ if (!ADMIN_SECRET) {
   throw new Error("ADMIN_SECRET environment variable is not set");
 }
 
+// Rate limiter: IP별 1분에 30회 제한
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30;
+const RATE_WINDOW_MS = 60_000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT;
+}
+
+// 오래된 항목 정리 (5분마다)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, 300_000);
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "https://jai960216.github.io",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -29,6 +53,17 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("cf-connecting-ip")
+    || "unknown";
+
+  if (!checkRateLimit(ip)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Retry-After": "60", ...CORS_HEADERS },
+    });
+  }
+
   const secret = req.headers.get("x-admin-secret");
 
   if (secret !== ADMIN_SECRET) return unauthorized();
