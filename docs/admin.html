@@ -33,6 +33,15 @@
   .login-form button { width: 100%; padding: 12px; background: #FFC843; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
   .login-form button:hover { opacity: 0.85; }
   .login-form .error-msg { color: #ff4444; font-size: 13px; margin-top: 8px; display: none; }
+  .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .search-bar input { flex: 1; padding: 10px 14px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; }
+  .search-bar input:focus { outline: none; border-color: #FFC843; }
+  .search-bar button { padding: 10px 20px; background: #FFC843; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-pro { background: #FFC843; color: #333; }
+  .badge-free { background: #eee; color: #888; }
+  .badge-verified { background: #3b82f6; color: #fff; }
+  .badge-admin { background: #8b5cf6; color: #fff; }
 </style>
 </head>
 <body>
@@ -54,6 +63,8 @@
   <div class="tabs">
     <button class="tab active" onclick="showTab('reports')">신고 목록</button>
     <button class="tab" onclick="showTab('suspended')">정지된 유저</button>
+    <button class="tab" onclick="showTab('users')">유저 관리</button>
+    <button class="tab" onclick="showTab('subscriptions')">구독 관리</button>
   </div>
 
   <div class="content" id="content">
@@ -92,7 +103,7 @@ function showDashboard() {
 
 async function api(action, params = {}) {
   const qs = new URLSearchParams({ action, ...params });
-  const method = ['dismiss','unsuspend','suspend'].includes(action) ? 'POST' : 'GET';
+  const method = ['dismiss','unsuspend','suspend','set_verified','set_subscription'].includes(action) ? 'POST' : 'GET';
   const res = await fetch(API_BASE + '?' + qs, {
     method,
     headers: { 'x-admin-secret': getSecret() },
@@ -109,11 +120,14 @@ let currentTab = 'reports';
 
 function showTab(tab) {
   currentTab = tab;
+  const tabs = ['reports', 'suspended', 'users', 'subscriptions'];
   document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0 && tab === 'reports') || (i === 1 && tab === 'suspended'));
+    t.classList.toggle('active', tabs[i] === tab);
   });
   if (tab === 'reports') loadReports();
-  else loadSuspended();
+  else if (tab === 'suspended') loadSuspended();
+  else if (tab === 'users') showUserSearch();
+  else if (tab === 'subscriptions') loadSubscriptions();
 }
 
 const REASON_MAP = {
@@ -212,6 +226,116 @@ async function unsuspend(userId) {
   if (!confirm('이 유저의 정지를 해제하시겠습니까?')) return;
   await api('unsuspend', { user_id: userId });
   loadSuspended();
+}
+
+// ===== 유저 관리 =====
+function showUserSearch() {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="search-bar">'
+    + '<input type="text" id="user-query" placeholder="닉네임 또는 친구코드 검색" onkeydown="if(event.key===\'Enter\')searchUsers()">'
+    + '<button onclick="searchUsers()">검색</button>'
+    + '</div>'
+    + '<div id="user-results"><div class="empty">닉네임이나 친구코드로 검색하세요.</div></div>';
+}
+
+async function searchUsers() {
+  const query = document.getElementById('user-query').value.trim();
+  if (!query) return;
+  const el = document.getElementById('user-results');
+  el.innerHTML = '<div class="empty">검색 중...</div>';
+
+  try {
+    const data = await api('search_users', { query });
+    if (!data.length) {
+      el.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>';
+      return;
+    }
+    el.innerHTML = '<table><thead><tr>'
+      + '<th>닉네임</th><th>상태</th><th>공식 배지</th><th>구독</th><th>조치</th>'
+      + '</tr></thead><tbody>'
+      + data.map(u => '<tr>'
+        + '<td>' + esc(u.nickname || '-') + '</td>'
+        + '<td>' + (u.is_suspended ? '<span class="badge badge-pro">정지됨</span>' : '정상') + '</td>'
+        + '<td>' + (u.is_verified ? '<span class="badge badge-verified">공식</span>' : '-') + '</td>'
+        + '<td>-</td>'
+        + '<td>'
+        + (u.is_verified
+          ? '<button class="btn btn-gray" onclick="setVerified(\'' + u.id + '\', false)">배지 해제</button>'
+          : '<button class="btn btn-success" onclick="setVerified(\'' + u.id + '\', true)">공식 배지 부여</button>')
+        + ' '
+        + '<button class="btn btn-success" onclick="grantPro(\'' + u.id + '\')">Pro 부여</button> '
+        + '<button class="btn btn-gray" onclick="revokePro(\'' + u.id + '\')">Pro 해제</button>'
+        + '</td>'
+        + '</tr>').join('')
+      + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = '<div class="error">검색 실패: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function setVerified(userId, verified) {
+  const msg = verified ? '공식 배지를 부여하시겠습니까?' : '공식 배지를 해제하시겠습니까?';
+  if (!confirm(msg)) return;
+  await api('set_verified', { user_id: userId, verified: String(verified) });
+  searchUsers();
+}
+
+async function grantPro(userId) {
+  if (!confirm('이 유저에게 Pro 구독을 부여하시겠습니까? (1년)')) return;
+  await api('set_subscription', { user_id: userId, plan: 'pro' });
+  alert('Pro 구독이 부여되었습니다.');
+  searchUsers();
+}
+
+async function revokePro(userId) {
+  if (!confirm('이 유저의 Pro 구독을 해제하시겠습니까?')) return;
+  await api('set_subscription', { user_id: userId, plan: 'free' });
+  alert('Pro 구독이 해제되었습니다.');
+  searchUsers();
+}
+
+// ===== 구독 관리 =====
+async function loadSubscriptions() {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">로딩 중...</div>';
+
+  try {
+    const data = await api('subscriptions');
+
+    if (data.error) {
+      el.innerHTML = '<div class="error">오류: ' + esc(data.error) + '</div>';
+      return;
+    }
+
+    if (!data.length) {
+      el.innerHTML = '<div class="empty">구독 중인 유저가 없습니다.</div>';
+      return;
+    }
+
+    el.innerHTML = '<div class="stats">'
+      + '<div class="stat-card"><div class="num">' + data.length + '</div><div class="label">총 구독자</div></div>'
+      + '</div>'
+      + '<table><thead><tr>'
+      + '<th>닉네임</th><th>플랜</th><th>상태</th><th>출처</th><th>만료일</th><th>조치</th>'
+      + '</tr></thead><tbody>'
+      + data.map(s => '<tr>'
+        + '<td>' + esc(s.profiles?.nickname || '-') + '</td>'
+        + '<td><span class="badge badge-pro">' + (s.plan || 'pro') + '</span></td>'
+        + '<td>' + (s.status || '-') + '</td>'
+        + '<td><span class="badge badge-admin">' + (s.source || '-') + '</span></td>'
+        + '<td>' + (s.current_period_end ? new Date(s.current_period_end).toLocaleDateString('ko') : '-') + '</td>'
+        + '<td><button class="btn btn-gray" onclick="revokeProSub(\'' + s.user_id + '\')">해제</button></td>'
+        + '</tr>').join('')
+      + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = '<div class="error">API 호출 실패: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function revokeProSub(userId) {
+  if (!confirm('이 유저의 구독을 해제하시겠습니까?')) return;
+  await api('set_subscription', { user_id: userId, plan: 'free' });
+  loadSubscriptions();
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
