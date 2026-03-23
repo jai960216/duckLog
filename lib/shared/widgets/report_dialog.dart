@@ -52,7 +52,9 @@ class _ReportDialogState extends State<ReportDialog> {
         children: [
           Icon(PhosphorIconsBold.warningCircle, color: DuckColors.error, size: 22),
           const SizedBox(width: 8),
-          Text(widget.title, style: const TextStyle(fontSize: 18)),
+          Flexible(
+            child: Text(widget.title, style: const TextStyle(fontSize: 18)),
+          ),
         ],
       ),
       content: SingleChildScrollView(

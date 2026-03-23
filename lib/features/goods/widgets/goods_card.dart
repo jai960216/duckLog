@@ -84,9 +84,12 @@ class GoodsCard extends StatelessWidget {
                 Row(
                   children: [
                     if (goods.category != null)
-                      DuckChip(
-                        label: Goods.categoryLabel(goods.category!),
-                        backgroundColor: _categoryColor(goods.category!),
+                      Flexible(
+                        flex: 0,
+                        child: DuckChip(
+                          label: Goods.categoryLabel(goods.category!),
+                          backgroundColor: _categoryColor(goods.category!),
+                        ),
                       ),
                     if (goods.workTag != null) ...[
                       const SizedBox(width: 4),
@@ -113,20 +116,27 @@ class GoodsCard extends StatelessWidget {
                     : '',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              if (goods.likeCount > 0) ...[
+              if (goods.likeCount > 0 || goods.isLikedByMe) ...[
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(PhosphorIconsBold.heart,
-                        size: 14, color: DuckColors.error),
-                    const SizedBox(width: 3),
-                    Text(
-                      '${goods.likeCount}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: DuckColors.error,
-                          ),
+                    Icon(
+                      goods.isLikedByMe
+                          ? PhosphorIconsFill.heart
+                          : PhosphorIconsBold.heart,
+                      size: 14,
+                      color: DuckColors.error,
                     ),
+                    if (goods.likeCount > 0) ...[
+                      const SizedBox(width: 3),
+                      Text(
+                        '${goods.likeCount}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: DuckColors.error,
+                            ),
+                      ),
+                    ],
                   ],
                 ),
               ],

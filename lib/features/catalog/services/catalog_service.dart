@@ -296,7 +296,14 @@ class CatalogService {
     String? description,
     String? photoUrl,
     int sortOrder = 0,
+    SubscriptionService? subscriptionService,
   }) async {
+    if (subscriptionService != null) {
+      final canAdd = await subscriptionService.checkCanAddCatalogItem(catalogId);
+      if (!canAdd) {
+        throw CatalogItemLimitExceededException();
+      }
+    }
     final data = {
       'catalog_id': catalogId,
       'character_id': characterId,

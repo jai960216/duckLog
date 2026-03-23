@@ -115,6 +115,8 @@ class NotificationListScreen extends ConsumerWidget {
                                       fontWeight:
                                           isRead ? FontWeight.normal : FontWeight.w600,
                                     ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           if (body.isNotEmpty) ...[
                             const SizedBox(height: 2),

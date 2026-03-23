@@ -151,6 +151,9 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
               width: double.infinity,
               height: 220,
               fit: BoxFit.cover,
+              httpHeaders: widget.work.workType == 'webtoon'
+                  ? _refererFromUrl(widget.work.coverUrl)
+                  : const {},
               placeholder: (_, __) => Container(
                 height: 220,
                 color: DuckColors.surface,
@@ -925,4 +928,16 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
       ],
     );
   }
+}
+
+/// URL 도메인 기반으로 Referer 헤더 반환
+Map<String, String> _refererFromUrl(String? url) {
+  if (url == null) return const {};
+  if (url.contains('pstatic.net') || url.contains('naver.net')) {
+    return const {'Referer': 'https://comic.naver.com/'};
+  }
+  if (url.contains('kakao') || url.contains('dn-img-page.kakao.com')) {
+    return const {'Referer': 'https://webtoon.kakao.com/'};
+  }
+  return const {};
 }

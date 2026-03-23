@@ -23,6 +23,18 @@ CREATE POLICY "Users can view own subscription"
   ON subscriptions FOR SELECT
   USING (user_id = auth.uid());
 
+CREATE POLICY "Deny client insert on subscriptions"
+  ON subscriptions FOR INSERT
+  WITH CHECK (false);
+
+CREATE POLICY "Deny client update on subscriptions"
+  ON subscriptions FOR UPDATE
+  USING (false);
+
+CREATE POLICY "Users can delete own subscription"
+  ON subscriptions FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- 2. 월별 사용량 추적
 CREATE TABLE monthly_usage (
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
@@ -37,13 +49,8 @@ CREATE POLICY "Users can view own usage"
   ON monthly_usage FOR SELECT
   USING (user_id = auth.uid());
 
-CREATE POLICY "Users can insert own usage"
-  ON monthly_usage FOR INSERT
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY "Users can update own usage"
-  ON monthly_usage FOR UPDATE
-  USING (user_id = auth.uid());
+-- monthly_usage는 increment_photo_usage() RPC (SECURITY DEFINER)로만 쓰기 가능
+-- 클라이언트 직접 INSERT/UPDATE 차단
 
 -- 3. 사진 업로드 카운트 증가 RPC
 CREATE OR REPLACE FUNCTION increment_photo_usage()
@@ -73,7 +80,7 @@ AS $$
   SELECT EXISTS(
     SELECT 1 FROM subscriptions
     WHERE user_id = p_user_id
-      AND plan IN ('pro_monthly', 'pro_yearly')
+      AND plan IN ('pro', 'pro_monthly', 'pro_yearly')
       AND status = 'active'
       AND (current_period_end IS NULL OR current_period_end > now())
   );

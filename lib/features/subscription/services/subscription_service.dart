@@ -82,6 +82,29 @@ class SubscriptionService {
     return count < AppConstants.freeCatalogLimit;
   }
 
+  Future<int> getCatalogItemCount(String catalogId) async {
+    final response = await _client
+        .from('catalog_items')
+        .select('id')
+        .eq('catalog_id', catalogId);
+    return (response as List).length;
+  }
+
+  Future<bool> checkCanAddCatalogItem(String catalogId) async {
+    final sub = await getSubscription();
+    if (sub.isPro) return true;
+
+    final count = await getCatalogItemCount(catalogId);
+    return count < AppConstants.freeCatalogItemLimit;
+  }
+
+  Future<void> cancelSubscription() async {
+    await _client
+        .from('subscriptions')
+        .delete()
+        .eq('user_id', _userId);
+  }
+
   Future<void> incrementPhotoUsage() async {
     await _client.rpc('increment_photo_usage');
   }

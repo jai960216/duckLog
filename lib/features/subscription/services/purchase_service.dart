@@ -89,16 +89,13 @@ class PurchaseService {
   /// 서버에서 영수증 검증 후 구독 활성화
   Future<void> _verifyAndDeliver(PurchaseDetails purchase) async {
     try {
-      final userId = _client.auth.currentUser?.id;
-      if (userId == null) return;
+      if (_client.auth.currentUser == null) return;
 
       final response = await _client.functions.invoke(
         'verify-purchase',
         body: {
-          'user_id': userId,
           'product_id': purchase.productID,
           'purchase_token': purchase.verificationData.serverVerificationData,
-          'source': purchase.verificationData.source,
         },
       );
 

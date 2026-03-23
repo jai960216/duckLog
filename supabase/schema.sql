@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   is_public BOOLEAN DEFAULT true,
   birth_year INTEGER,                -- 출생연도 (연령 확인용)
   is_verified BOOLEAN DEFAULT false, -- 공식 계정 배지
+  is_supporter BOOLEAN DEFAULT false, -- Pro 서포터 배지
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -24,6 +25,21 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- UPDATE profiles SET friend_code = substr(md5(random()::text), 1, 6) WHERE friend_code IS NULL;
 -- ALTER TABLE profiles ALTER COLUMN friend_code SET NOT NULL;
 -- DROP INDEX IF EXISTS idx_profiles_nickname;
+-- ALTER TABLE profiles ADD COLUMN is_supporter BOOLEAN DEFAULT false;
+
+-- 구독
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL DEFAULT 'free',         -- free, pro, pro_monthly, pro_yearly
+  status TEXT NOT NULL DEFAULT 'active',     -- active, cancelled, expired
+  provider TEXT,                             -- google_play, admin
+  provider_subscription_id TEXT,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
 -- 굿즈 기록
 CREATE TABLE IF NOT EXISTS goods (
@@ -546,6 +562,25 @@ ALTER TABLE webtoons ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can read webtoons"
   ON webtoons FOR SELECT
   USING (true);
+
+-- 구독 RLS
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own subscription"
+  ON subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Deny client insert on subscriptions"
+  ON subscriptions FOR INSERT
+  WITH CHECK (false);
+
+CREATE POLICY "Deny client update on subscriptions"
+  ON subscriptions FOR UPDATE
+  USING (false);
+
+CREATE POLICY "Users can delete own subscription"
+  ON subscriptions FOR DELETE
+  USING (auth.uid() = user_id);
 
 -- ============================================
 -- FUNCTIONS

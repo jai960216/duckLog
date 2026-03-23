@@ -117,13 +117,21 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          profile.nickname,
-                          style: Theme.of(context).textTheme.titleLarge,
+                        Flexible(
+                          child: Text(
+                            profile.nickname,
+                            style: Theme.of(context).textTheme.titleLarge,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         if (profile.isVerified) ...[
                           const SizedBox(width: 4),
                           const Icon(PhosphorIconsFill.sealCheck, size: 20, color: Color(0xFF4A9EFF)),
+                        ],
+                        if (profile.isSupporter) ...[
+                          const SizedBox(width: 4),
+                          const Icon(PhosphorIconsFill.crown, size: 18, color: Color(0xFFFFAA00)),
                         ],
                         if (profile.friendCode.isNotEmpty)
                           Text(

@@ -160,9 +160,10 @@ Deno.serve(async (req) => {
           user_id: userId,
           plan: "pro",
           status: "active",
-          source: "admin",
+          provider: "admin",
           current_period_start: new Date().toISOString(),
           current_period_end: endDate.toISOString(),
+          updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
       if (error) return json({ error: error.message }, 500);
     } else {

@@ -8,6 +8,7 @@ class Profile {
   final bool isPublic;
   final int? birthYear;
   final bool isVerified;
+  final bool isSupporter;
   final bool isSuspended;
   final DateTime createdAt;
 
@@ -21,6 +22,7 @@ class Profile {
     this.isPublic = true,
     this.birthYear,
     this.isVerified = false,
+    this.isSupporter = false,
     this.isSuspended = false,
     required this.createdAt,
   });
@@ -43,6 +45,7 @@ class Profile {
       isPublic: json['is_public'] as bool? ?? true,
       birthYear: json['birth_year'] as int?,
       isVerified: json['is_verified'] as bool? ?? false,
+      isSupporter: json['is_supporter'] as bool? ?? false,
       isSuspended: json['is_suspended'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -69,6 +72,7 @@ class Profile {
     bool? isPublic,
     int? birthYear,
     bool? isVerified,
+    bool? isSupporter,
     bool? isSuspended,
   }) {
     return Profile(
@@ -81,6 +85,7 @@ class Profile {
       isPublic: isPublic ?? this.isPublic,
       birthYear: birthYear ?? this.birthYear,
       isVerified: isVerified ?? this.isVerified,
+      isSupporter: isSupporter ?? this.isSupporter,
       isSuspended: isSuspended ?? this.isSuspended,
       createdAt: createdAt,
     );

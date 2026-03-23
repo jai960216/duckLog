@@ -34,6 +34,7 @@ class GoodsDetailScreen extends ConsumerStatefulWidget {
 class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
   bool? _isLiked;
   int? _likeCount;
+  bool _likeChanged = false;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +43,10 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('굿즈 상세'),
+        leading: IconButton(
+          icon: const Icon(PhosphorIconsBold.caretLeft),
+          onPressed: () => Navigator.of(context).pop(_likeChanged ? true : null),
+        ),
         actions: [
           if (widget.readOnly)
             goodsAsync.whenOrNull(
@@ -272,6 +277,7 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
       _isLiked = !currentlyLiked;
       _likeCount = currentlyLiked ? currentCount - 1 : currentCount + 1;
     });
+    _likeChanged = true;
 
     try {
       await ref.read(feedServiceProvider).toggleLike(goodsId);

@@ -520,3 +520,8 @@ class CatalogLimitExceededException implements Exception {
   @override
   String toString() => '무료 플랜의 도감 생성 한도를 초과했어요';
 }
+
+class CatalogItemLimitExceededException implements Exception {
+  @override
+  String toString() => '무료 플랜의 도감 아이템 한도를 초과했어요';
+}

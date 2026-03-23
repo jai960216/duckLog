@@ -4,8 +4,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/catalog_item.dart';
+import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../goods/services/goods_service.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../services/catalog_service.dart';
 
 class CatalogItemFormScreen extends ConsumerStatefulWidget {
@@ -98,6 +101,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
         });
         if (mounted) Navigator.of(context).pop(true);
       } else {
+        final subService = ref.read(subscriptionServiceProvider);
         await service.addItem(
           catalogId: widget.catalogId,
           characterId: widget.characterId,
@@ -106,6 +110,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
               ? null
               : _descriptionController.text.trim(),
           photoUrl: photoUrl,
+          subscriptionService: subService,
         );
 
         _hasAdded = true;
@@ -124,6 +129,10 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
         } else {
           if (mounted) Navigator.of(context).pop(true);
         }
+      }
+    } on CatalogItemLimitExceededException {
+      if (mounted) {
+        DuckSnackBar.error(context, '무료 플랜은 도감당 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요');
       }
     } catch (e) {
       if (mounted) {

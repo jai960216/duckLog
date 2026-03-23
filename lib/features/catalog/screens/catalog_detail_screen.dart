@@ -6,9 +6,12 @@ import '../../../config/colors.dart';
 import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
+import '../../goods/services/goods_service.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_item_tile.dart';
 import '../widgets/catalog_setup_form.dart';
@@ -991,6 +994,7 @@ class _CharacterCatalogEditScreenState
     setState(() => _isLoading = true);
     try {
       final service = ref.read(catalogServiceProvider);
+      final subService = ref.read(subscriptionServiceProvider);
 
       // Upload cover if new photo selected
       String? finalCoverUrl = coverUrl;
@@ -1081,6 +1085,7 @@ class _CharacterCatalogEditScreenState
                 characterId: charData.id,
                 name: itemName,
                 sortOrder: ii,
+                subscriptionService: subService,
               );
             }
           }
@@ -1108,6 +1113,7 @@ class _CharacterCatalogEditScreenState
                 characterId: ch.id,
                 name: itemName,
                 sortOrder: ii,
+                subscriptionService: subService,
               );
             }
           }
@@ -1120,6 +1126,10 @@ class _CharacterCatalogEditScreenState
       ref.invalidate(catalogItemsProvider(widget.catalogId));
 
       if (mounted) Navigator.of(context).pop(true);
+    } on CatalogItemLimitExceededException {
+      if (mounted) {
+        DuckSnackBar.error(context, '무료 플랜은 도감당 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요');
+      }
     } catch (e) {
       if (mounted) {
         DuckSnackBar.error(context, '수정에 실패했어요');

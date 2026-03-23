@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
+import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../goods/services/goods_service.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../models/tcg_types.dart';
 import '../services/tcg_provider_map.dart';
 import '../services/catalog_service.dart';
@@ -86,11 +89,13 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
       final effectiveCoverUrl = coverUrl ?? cards.firstOrNull?.imageUrl;
 
       if (_isAddMode) {
+        final subService = ref.read(subscriptionServiceProvider);
         for (final item in items) {
           await service.addItem(
             catalogId: widget.catalogId!,
             name: item['name']!,
             photoUrl: item['photo_url'],
+            subscriptionService: subService,
           );
         }
         if (mounted) {
@@ -115,6 +120,10 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
             ),
           );
         }
+      }
+    } on CatalogItemLimitExceededException {
+      if (mounted) {
+        DuckSnackBar.error(context, '무료 플랜은 도감당 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요');
       }
     } catch (e) {
       if (mounted) {

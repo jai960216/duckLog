@@ -24,12 +24,14 @@ class Subscription {
   });
 
   bool get isPro =>
-      (plan == 'pro_monthly' || plan == 'pro_yearly') &&
+      (plan == 'pro' || plan == 'pro_monthly' || plan == 'pro_yearly') &&
       status == 'active' &&
       (currentPeriodEnd == null || currentPeriodEnd!.isAfter(DateTime.now()));
 
   String get planDisplayName {
     switch (plan) {
+      case 'pro':
+        return 'Pro';
       case 'pro_monthly':
         return 'Pro 월간';
       case 'pro_yearly':

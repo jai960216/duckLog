@@ -57,6 +57,10 @@ class FeedGoodsCard extends StatelessWidget {
                             const SizedBox(width: 3),
                             const Icon(PhosphorIconsFill.sealCheck, size: 14, color: Color(0xFF4A9EFF)),
                           ],
+                          if (owner.isSupporter) ...[
+                            const SizedBox(width: 3),
+                            const Icon(PhosphorIconsFill.crown, size: 13, color: Color(0xFFFFAA00)),
+                          ],
                         ],
                       ),
                       if (goods.purchasedAt != null)
@@ -126,9 +130,12 @@ class FeedGoodsCard extends StatelessWidget {
           Row(
             children: [
               if (goods.category != null)
-                DuckChip(
-                  label: Goods.categoryLabel(goods.category!),
-                  backgroundColor: _categoryColor(goods.category!),
+                Flexible(
+                  flex: 0,
+                  child: DuckChip(
+                    label: Goods.categoryLabel(goods.category!),
+                    backgroundColor: _categoryColor(goods.category!),
+                  ),
                 ),
               if (goods.workTag != null) ...[
                 const SizedBox(width: 4),

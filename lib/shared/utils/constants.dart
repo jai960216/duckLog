@@ -20,4 +20,5 @@ class AppConstants {
   // Free tier limits
   static const int freePhotoLimit = 50;
   static const int freeCatalogLimit = 3;
+  static const int freeCatalogItemLimit = 30;
 }

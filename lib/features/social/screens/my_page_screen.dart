@@ -90,13 +90,21 @@ class MyPageScreen extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  profile.nickname,
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                Flexible(
+                                  child: Text(
+                                    profile.nickname,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 if (profile.isVerified) ...[
                                   const SizedBox(width: 4),
                                   const Icon(PhosphorIconsFill.sealCheck, size: 18, color: Color(0xFF4A9EFF)),
+                                ],
+                                if (profile.isSupporter) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(PhosphorIconsFill.crown, size: 16, color: Color(0xFFFFAA00)),
                                 ],
                               ],
                             ),
@@ -223,11 +231,11 @@ class MyPageScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'DuckLog Pro',
+                      '구독 관리',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     Text(
-                      isProAsync.valueOrNull == true ? 'Pro 구독 중' : '업그레이드하기',
+                      isProAsync.valueOrNull == true ? 'Pro 구독 중' : 'Free 플랜',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: DuckColors.textSub,
                           ),
