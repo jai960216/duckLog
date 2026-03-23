@@ -72,15 +72,13 @@ class MyPageScreen extends ConsumerWidget {
                                   fit: BoxFit.cover,
                                   width: 56,
                                   height: 56,
-                                  errorBuilder: (_, __, ___) => const Center(
-                                    child: Text('🐥',
-                                        style: TextStyle(fontSize: 28)),
+                                  errorBuilder: (_, __, ___) => Center(
+                                    child: Image.asset('assets/images/duck_avatar.png', width: 32, height: 32),
                                   ),
                                 ),
                               )
-                            : const Center(
-                                child:
-                                    Text('🐥', style: TextStyle(fontSize: 28)),
+                            : Center(
+                                child: Image.asset('assets/images/duck_avatar.png', width: 32, height: 32),
                               ),
                       ),
                       const SizedBox(width: 16),

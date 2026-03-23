@@ -380,14 +380,14 @@ class _FriendSearchSheetState extends ConsumerState<_FriendSearchSheet> {
                     child: CachedNetworkImage(
                       imageUrl: profile.avatarUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => const Center(
-                          child: Text('🐥', style: TextStyle(fontSize: 20))),
-                      errorWidget: (_, __, ___) => const Center(
-                          child: Text('🐥', style: TextStyle(fontSize: 20))),
+                      placeholder: (_, __) => Center(
+                          child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
+                      errorWidget: (_, __, ___) => Center(
+                          child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
                     ),
                   )
-                : const Center(
-                    child: Text('🐥', style: TextStyle(fontSize: 20))),
+                : Center(
+                    child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -786,14 +786,14 @@ class _ProfileTile extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: profile!.avatarUrl!,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => const Center(
-                      child: Text('🐥', style: TextStyle(fontSize: 20))),
-                  errorWidget: (_, __, ___) => const Center(
-                      child: Text('🐥', style: TextStyle(fontSize: 20))),
+                  placeholder: (_, __) => Center(
+                      child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
+                  errorWidget: (_, __, ___) => Center(
+                      child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
                 ),
               )
-            : const Center(
-                child: Text('🐥', style: TextStyle(fontSize: 20))),
+            : Center(
+                child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
       ),
       title: Row(
         children: [

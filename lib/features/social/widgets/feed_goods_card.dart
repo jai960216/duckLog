@@ -175,12 +175,12 @@ class FeedGoodsCard extends StatelessWidget {
                 imageUrl: owner.avatarUrl!,
                 fit: BoxFit.cover,
                 placeholder: (_, __) =>
-                    const Center(child: Text('🐥', style: TextStyle(fontSize: 16))),
+                    Center(child: Image.asset('assets/images/duck_avatar.png', width: 20, height: 20)),
                 errorWidget: (_, __, ___) =>
-                    const Center(child: Text('🐥', style: TextStyle(fontSize: 16))),
+                    Center(child: Image.asset('assets/images/duck_avatar.png', width: 20, height: 20)),
               ),
             )
-          : const Center(child: Text('🐥', style: TextStyle(fontSize: 16))),
+          : Center(child: Image.asset('assets/images/duck_avatar.png', width: 20, height: 20)),
     );
   }
 

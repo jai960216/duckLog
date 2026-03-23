@@ -100,17 +100,14 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                               child: CachedNetworkImage(
                                 imageUrl: profile.avatarUrl!,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => const Center(
-                                    child: Text('🐥',
-                                        style: TextStyle(fontSize: 32))),
-                                errorWidget: (_, __, ___) => const Center(
-                                    child: Text('🐥',
-                                        style: TextStyle(fontSize: 32))),
+                                placeholder: (_, __) => Center(
+                                    child: Image.asset('assets/images/duck_avatar.png', width: 40, height: 40)),
+                                errorWidget: (_, __, ___) => Center(
+                                    child: Image.asset('assets/images/duck_avatar.png', width: 40, height: 40)),
                               ),
                             )
-                          : const Center(
-                              child: Text('🐥',
-                                  style: TextStyle(fontSize: 32))),
+                          : Center(
+                              child: Image.asset('assets/images/duck_avatar.png', width: 40, height: 40)),
                     ),
                     const SizedBox(height: 12),
                     Row(

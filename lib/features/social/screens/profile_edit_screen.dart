@@ -264,15 +264,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2),
                                 ),
-                                errorWidget: (_, __, ___) => const Center(
-                                  child: Text('🐥',
-                                      style: TextStyle(fontSize: 40)),
+                                errorWidget: (_, __, ___) => Center(
+                                  child: Image.asset('assets/images/duck_avatar.png', width: 48, height: 48),
                                 ),
                               ),
                             )
-                          : const Center(
+                          : Center(
                               child:
-                                  Text('🐥', style: TextStyle(fontSize: 40)),
+                                  Image.asset('assets/images/duck_avatar.png', width: 48, height: 48),
                             ),
                     ),
                     Positioned(

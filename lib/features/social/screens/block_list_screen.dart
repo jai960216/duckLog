@@ -45,7 +45,7 @@ class BlockListScreen extends ConsumerWidget {
                         ? CachedNetworkImageProvider(avatarUrl)
                         : null,
                     child: avatarUrl == null
-                        ? const Text('🐥', style: TextStyle(fontSize: 20))
+                        ? Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)
                         : null,
                   ),
                   title: Text(nickname),

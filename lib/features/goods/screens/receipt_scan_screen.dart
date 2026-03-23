@@ -156,8 +156,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: DuckColors.outline, width: 3),
               ),
-              child: const Center(
-                child: Text('🔍🐥', style: TextStyle(fontSize: 48)),
+              child: Center(
+                child: Image.asset('assets/images/duck_avatar.png', width: 64, height: 64),
               ),
             ),
             const SizedBox(height: 24),

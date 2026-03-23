@@ -124,9 +124,8 @@ class _ReceiptListScreenState extends ConsumerState<ReceiptListScreen> {
                             border: Border.all(
                                 color: DuckColors.outline, width: 3),
                           ),
-                          child: const Center(
-                            child: Text('🧾🐥',
-                                style: TextStyle(fontSize: 42)),
+                          child: Center(
+                            child: Image.asset('assets/images/duck_avatar.png', width: 56, height: 56),
                           ),
                         ),
                         const SizedBox(height: 20),

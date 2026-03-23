@@ -120,8 +120,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     color: DuckColors.primarySurface,
                     shape: BoxShape.circle,
                   ),
-                  child: const Center(
-                    child: Text('🐥', style: TextStyle(fontSize: 22)),
+                  child: Center(
+                    child: Image.asset('assets/images/duck_avatar.png', width: 28, height: 28),
                   ),
                 ),
               ),

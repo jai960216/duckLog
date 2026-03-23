@@ -23,7 +23,7 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('\u{1F425}', style: TextStyle(fontSize: 56)),
+            Image.asset('assets/images/splash_logo.png', width: 72, height: 72),
             const SizedBox(height: 16),
             Text(
               'DuckLog',

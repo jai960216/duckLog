@@ -95,8 +95,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         width: 3,
                       ),
                     ),
-                    child: const Center(
-                      child: Text('🐥', style: TextStyle(fontSize: 48)),
+                    child: Center(
+                      child: Image.asset('assets/images/splash_logo.png', width: 64, height: 64),
                     ),
                   ),
                 ),

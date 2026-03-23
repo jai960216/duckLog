@@ -59,10 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 60),
 
                 // Duck mascot
-                const Text(
-                  '\u{1F425}',
-                  style: TextStyle(fontSize: 80),
-                ),
+                Image.asset('assets/images/duck_avatar.png', width: 96, height: 96),
                 const SizedBox(height: 24),
 
                 // App name
