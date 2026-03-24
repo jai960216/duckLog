@@ -6,8 +6,10 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../services/draft_service.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../../catalog/services/catalog_service.dart';
 import '../services/goods_service.dart';
 import '../widgets/catalog_item_picker.dart';
@@ -362,7 +364,8 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
           }
           // Invalidate catalog providers so progress updates
           ref.invalidate(myCatalogsProvider);
-        } catch (e) {
+        } catch (_) {
+          // best-effort: ignore if catalog photo update fails
         }
       }
 
@@ -371,6 +374,10 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
 
       if (mounted) {
         Navigator.of(context).pop(true);
+      }
+    } on PhotoLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 사진을 ${AppConstants.freePhotoLimit}장까지 업로드할 수 있어요.');
       }
     } catch (e) {
       if (mounted) {

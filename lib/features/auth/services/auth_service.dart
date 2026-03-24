@@ -207,6 +207,7 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     await FcmService.instance.clearToken();
+    try { await GoogleSignIn().signOut(); } catch (_) {}
     await _client.auth.signOut();
   }
 
@@ -223,21 +224,32 @@ class AuthService {
     // 1. Storage 파일 정리
     await _deleteStorageFiles(userId);
 
-    // 2. Delete profile (cascade deletes goods, receipts, etc.)
+    // 2. 구독 정보 삭제 (cascade가 없을 수 있으므로 명시적 삭제)
+    // Note: Play Store 구독은 서버에서 취소 불가 — 유저가 Play Store에서 직접 해지해야 함.
+    // DB에서 구독 행을 삭제하면 webhook이 매칭 유저를 못 찾으므로 자연 만료됨.
+    try {
+      await _client.from('subscriptions').delete().eq('user_id', userId);
+    } catch (_) {
+      // 구독이 없으면 무시
+    }
+
+    // 3. Delete profile (cascade deletes goods, receipts, etc.)
     await _client.from('profiles').delete().eq('id', userId);
 
-    // 3. Auth 계정 삭제 (admin API — Edge Function 필요 시 signOut만)
+    // 4. Auth 계정 삭제 (service_role 권한의 Edge Function 호출)
     try {
-      await _client.auth.admin.deleteUser(userId);
+      await _client.functions.invoke('delete-account');
     } catch (_) {
-      // admin 권한 없으면 signOut만 처리
-      await _client.auth.signOut();
-      return;
+      // Edge Function 실패 시에도 signOut 처리
     }
+
     await _client.auth.signOut();
   }
 
   /// Storage 버킷에서 유저 관련 파일 삭제
+  /// Note: Supabase Storage list()은 직계 자식만 반환합니다.
+  /// 현재 업로드 경로가 모두 userId/filename (flat) 구조이므로 문제없지만,
+  /// 하위 디렉터리가 추가되면 재귀 삭제 로직이 필요합니다.
   Future<void> _deleteStorageFiles(String userId) async {
     const buckets = ['goods-photos', 'receipt-photos', 'avatars', 'catalog-photos'];
 

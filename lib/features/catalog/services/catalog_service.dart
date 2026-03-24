@@ -6,6 +6,7 @@ import '../../../shared/models/catalog.dart';
 import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../auth/services/auth_service.dart';
+import '../../../shared/utils/constants.dart';
 import '../../goods/services/goods_service.dart';
 import '../../subscription/services/subscription_service.dart';
 
@@ -82,11 +83,10 @@ class CatalogService {
     SubscriptionService? subscriptionService,
   }) async {
     // Check catalog creation limit for free users
-    if (subscriptionService != null) {
-      final canCreate = await subscriptionService.checkCanCreateCatalog();
-      if (!canCreate) {
-        throw CatalogLimitExceededException();
-      }
+    final subService = subscriptionService ?? SubscriptionService(_client);
+    final canCreate = await subService.checkCanCreateCatalog();
+    if (!canCreate) {
+      throw CatalogLimitExceededException();
     }
 
     final data = {
@@ -187,6 +187,63 @@ class CatalogService {
   }
 
   Future<void> deleteCatalog(String id) async {
+    // Clean up all storage photos before deleting the catalog
+    try {
+      final paths = <String>[];
+
+      // 1. Collect item photo paths
+      final items = await _client
+          .from('catalog_items')
+          .select('photo_url')
+          .eq('catalog_id', id);
+      for (final row in items as List) {
+        final url = row['photo_url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          final path = _extractStoragePath(url, 'catalog-photos');
+          if (path != null) paths.add(path);
+        }
+      }
+
+      // 2. Collect character photo paths
+      try {
+        final characters = await _client
+            .from('catalog_characters')
+            .select('photo_url')
+            .eq('catalog_id', id);
+        for (final row in characters as List) {
+          final url = row['photo_url'] as String?;
+          if (url != null && url.isNotEmpty) {
+            final path = _extractStoragePath(url, 'catalog-photos');
+            if (path != null) paths.add(path);
+          }
+        }
+      } catch (_) {
+        // catalog_characters table may not exist
+      }
+
+      // 3. Collect catalog cover photo path
+      final catalog = await _client
+          .from('catalogs')
+          .select('cover_url')
+          .eq('id', id)
+          .maybeSingle();
+      if (catalog != null) {
+        final coverUrl = catalog['cover_url'] as String?;
+        if (coverUrl != null && coverUrl.isNotEmpty) {
+          final path = _extractStoragePath(coverUrl, 'catalog-photos');
+          if (path != null) paths.add(path);
+        }
+      }
+
+      // 4. Delete all collected paths from storage
+      if (paths.isNotEmpty) {
+        await _client.storage.from('catalog-photos').remove(paths);
+      }
+    } catch (_) {
+      // Storage cleanup failure should not block DB deletion
+    }
+
+    // 5. Delete the catalog DB row (cascade handles items/characters)
     await _client.from('catalogs').delete().eq('id', id);
   }
 
@@ -248,6 +305,26 @@ class CatalogService {
   }
 
   Future<void> deleteCharacter(String id) async {
+    // Clean up character photo from storage before deletion
+    try {
+      final row = await _client
+          .from('catalog_characters')
+          .select('photo_url')
+          .eq('id', id)
+          .maybeSingle();
+      if (row != null) {
+        final url = row['photo_url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          final path = _extractStoragePath(url, 'catalog-photos');
+          if (path != null) {
+            await _client.storage.from('catalog-photos').remove([path]);
+          }
+        }
+      }
+    } catch (_) {
+      // Storage cleanup failure should not block DB deletion
+    }
+
     await _client.from('catalog_characters').delete().eq('id', id);
   }
 
@@ -298,11 +375,10 @@ class CatalogService {
     int sortOrder = 0,
     SubscriptionService? subscriptionService,
   }) async {
-    if (subscriptionService != null) {
-      final canAdd = await subscriptionService.checkCanAddCatalogItem(catalogId);
-      if (!canAdd) {
-        throw CatalogItemLimitExceededException();
-      }
+    final subService = subscriptionService ?? SubscriptionService(_client);
+    final canAdd = await subService.checkCanAddCatalogItem(catalogId);
+    if (!canAdd) {
+      throw CatalogItemLimitExceededException();
     }
     final data = {
       'catalog_id': catalogId,
@@ -364,6 +440,26 @@ class CatalogService {
   }
 
   Future<void> deleteItem(String id) async {
+    // Clean up item photo from storage before deletion
+    try {
+      final row = await _client
+          .from('catalog_items')
+          .select('photo_url')
+          .eq('id', id)
+          .maybeSingle();
+      if (row != null) {
+        final url = row['photo_url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          final path = _extractStoragePath(url, 'catalog-photos');
+          if (path != null) {
+            await _client.storage.from('catalog-photos').remove([path]);
+          }
+        }
+      }
+    } catch (_) {
+      // Storage cleanup failure should not block DB deletion
+    }
+
     await _client.from('catalog_items').delete().eq('id', id);
   }
 
@@ -440,6 +536,13 @@ class CatalogService {
 
     // 2. 아이템 일괄 추가
     if (items.isNotEmpty) {
+      // 무료 유저 아이템 수 제한 체크
+      final subService = SubscriptionService(_client);
+      final sub = await subService.getSubscription();
+      if (!sub.isPro && items.length > AppConstants.freeCatalogItemLimit) {
+        throw CatalogItemLimitExceededException();
+      }
+
       final rows = items.asMap().entries.map((entry) {
         final item = entry.value;
         return {
@@ -480,7 +583,15 @@ class CatalogService {
       visibility: visibility,
     );
 
-    int totalItems = 0;
+    // 무료 유저 아이템 수 제한 체크
+    final totalItems = characters.fold<int>(0, (sum, ch) => sum + ((ch['items'] as List?)?.length ?? 0));
+    final subService = SubscriptionService(_client);
+    final sub = await subService.getSubscription();
+    if (!sub.isPro && totalItems > AppConstants.freeCatalogItemLimit) {
+      throw CatalogItemLimitExceededException();
+    }
+
+    int totalItemsInserted = 0;
 
     // 2. 캐릭터 batch insert — 테이블 없으면 flat items fallback
     try {
@@ -511,7 +622,7 @@ class CatalogService {
             };
           }).toList();
           await _client.from('catalog_items').insert(rows);
-          totalItems += items.length;
+          totalItemsInserted += items.length;
         }
       }
     } on PostgrestException {
@@ -529,12 +640,12 @@ class CatalogService {
             'photo_url': charData['photo_url'] as String?,
             'sort_order': sortIdx++,
           });
-          totalItems++;
+          totalItemsInserted++;
         }
       }
     }
 
-    return catalog.copyWith(totalItems: totalItems);
+    return catalog.copyWith(totalItems: totalItemsInserted);
   }
 
   // ── Goods ↔ Catalog Linking ──
@@ -624,7 +735,15 @@ class CatalogService {
 
   // ── Photo Upload ──
 
-  Future<String> uploadPhoto(Uint8List bytes, String fileName) async {
+  Future<String> uploadPhoto(Uint8List bytes, String fileName,
+      {SubscriptionService? subscriptionService}) async {
+    // Check photo upload limit for free users
+    final subService = subscriptionService ?? SubscriptionService(_client);
+    final canUpload = await subService.checkCanUploadPhoto();
+    if (!canUpload) {
+      throw PhotoLimitExceededException();
+    }
+
     final ext = fileName.split('.').last.toLowerCase();
     final contentType = ext == 'png'
         ? 'image/png'
@@ -637,6 +756,23 @@ class CatalogService {
       bytes,
       fileOptions: FileOptions(contentType: contentType, upsert: true),
     );
+
+    // Increment photo usage counter
+    await subService.incrementPhotoUsage();
+
     return _client.storage.from('catalog-photos').getPublicUrl(path);
+  }
+
+  /// Extract the storage path (e.g. "userId/timestamp.ext") from a public URL.
+  /// Returns null if the URL doesn't match the expected bucket pattern.
+  String? _extractStoragePath(String url, String bucket) {
+    // Public URL format: .../storage/v1/object/public/<bucket>/<path>
+    final marker = '/storage/v1/object/public/$bucket/';
+    final idx = url.indexOf(marker);
+    if (idx == -1) return null;
+    final path = url.substring(idx + marker.length);
+    // Strip any query parameters
+    final qIdx = path.indexOf('?');
+    return qIdx == -1 ? path : path.substring(0, qIdx);
   }
 }

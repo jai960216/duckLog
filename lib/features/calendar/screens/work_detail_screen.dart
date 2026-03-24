@@ -154,12 +154,12 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
               httpHeaders: widget.work.workType == 'webtoon'
                   ? _refererFromUrl(widget.work.coverUrl)
                   : const {},
-              placeholder: (_, __) => Container(
+              placeholder: (_, _) => Container(
                 height: 220,
                 color: DuckColors.surface,
                 child: const Center(child: CircularProgressIndicator()),
               ),
-              errorWidget: (_, __, ___) => Container(
+              errorWidget: (_, _, _) => Container(
                 height: 120,
                 color: DuckColors.surface,
                 child: Icon(
@@ -230,7 +230,7 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
                       ?.copyWith(color: DuckColors.textSub),
                 ),
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ],
           ),
@@ -420,7 +420,7 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
                     try {
                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                     } catch (_) {
-                      if (mounted) {
+                      if (context.mounted) {
                         DuckSnackBar.error(context, '링크를 열 수 없어요.');
                       }
                     }
@@ -491,7 +491,7 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
                     try {
                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                     } catch (_) {
-                      if (mounted) {
+                      if (context.mounted) {
                         DuckSnackBar.error(context, '링크를 열 수 없어요.');
                       }
                     }
@@ -593,7 +593,7 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
                     try {
                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                     } catch (_) {
-                      if (mounted) {
+                      if (context.mounted) {
                         DuckSnackBar.error(context, '링크를 열 수 없어요.');
                       }
                     }

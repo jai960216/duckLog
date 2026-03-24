@@ -89,14 +89,14 @@ class FeedGoodsCard extends StatelessWidget {
                   child: CachedNetworkImage(
                     imageUrl: goods.photoUrls.first,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
+                    placeholder: (_, _) => Container(
                       color: DuckColors.surface,
                       child: const Center(
                         child: Icon(PhosphorIconsBold.image,
                             size: 32, color: DuckColors.textSub),
                       ),
                     ),
-                    errorWidget: (_, __, ___) => Container(
+                    errorWidget: (_, _, _) => Container(
                       color: DuckColors.surface,
                       child: const Center(
                         child: Icon(PhosphorIconsBold.imageBroken,
@@ -174,9 +174,9 @@ class FeedGoodsCard extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: owner.avatarUrl!,
                 fit: BoxFit.cover,
-                placeholder: (_, __) =>
+                placeholder: (_, _) =>
                     Center(child: Image.asset('assets/images/duck_avatar.png', width: 20, height: 20)),
-                errorWidget: (_, __, ___) =>
+                errorWidget: (_, _, _) =>
                     Center(child: Image.asset('assets/images/duck_avatar.png', width: 20, height: 20)),
               ),
             )

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../services/goods_service.dart';

@@ -44,7 +44,7 @@ class CatalogCard extends StatelessWidget {
                           width: double.infinity,
                           fit: BoxFit.cover,
                           alignment: Alignment(0, catalog.coverFitY * 2 - 1),
-                          errorBuilder: (_, __, ___) => _placeholder(),
+                          errorBuilder: (_, _, _) => _placeholder(),
                         ),
                       ),
                     ),

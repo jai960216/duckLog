@@ -142,7 +142,7 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
                     child: CachedNetworkImage(
                       imageUrl: goods.photoUrls[index],
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
+                      placeholder: (_, _) => Container(
                         color: DuckColors.surface,
                         child: const Center(
                           child: CircularProgressIndicator(
@@ -297,7 +297,7 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
 
     return catalogFuture.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (data) {
         if (data == null) return const SizedBox.shrink();
         final (catalog, item, _) = data;
@@ -380,7 +380,7 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
                   child: CachedNetworkImage(
                     imageUrl: photoUrls[index],
                     fit: BoxFit.contain,
-                    placeholder: (_, __) => const Center(
+                    placeholder: (_, _) => const Center(
                       child: CircularProgressIndicator(
                           color: DuckColors.primary),
                     ),

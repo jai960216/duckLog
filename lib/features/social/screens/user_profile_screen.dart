@@ -30,6 +30,17 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final blockedIds = ref.watch(blockedUserIdsProvider).valueOrNull ?? {};
+    if (blockedIds.contains(widget.userId)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('프로필')),
+        body: const Center(
+          child: Text('차단된 사용자입니다',
+              style: TextStyle(fontSize: 16, color: DuckColors.textSub)),
+        ),
+      );
+    }
+
     final profileAsync = ref.watch(userProfileProvider(widget.userId));
     final goodsAsync = ref.watch(userGoodsProvider(widget.userId));
     final catalogsAsync = ref.watch(userCatalogsProvider(widget.userId));
@@ -100,9 +111,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                               child: CachedNetworkImage(
                                 imageUrl: profile.avatarUrl!,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => Center(
+                                placeholder: (_, _) => Center(
                                     child: Image.asset('assets/images/duck_avatar.png', width: 40, height: 40)),
-                                errorWidget: (_, __, ___) => Center(
+                                errorWidget: (_, _, _) => Center(
                                     child: Image.asset('assets/images/duck_avatar.png', width: 40, height: 40)),
                               ),
                             )
@@ -218,7 +229,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                         strokeWidth: 2, color: DuckColors.primary),
                   ),
                 ),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 16),
 
@@ -239,7 +250,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   ),
                 ),
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
               const SizedBox(height: 16),
 
@@ -286,7 +297,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                         color: DuckColors.primary),
                   ),
                 ),
-                error: (_, __) => const DuckEmptyState(
+                error: (_, _) => const DuckEmptyState(
                   message: '데이터를 불러올 수 없어요.',
                   icon: PhosphorIconsBold.warning,
                 ),
@@ -328,7 +339,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                                     ? Image.network(
                                         catalog.coverUrl!,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
+                                        errorBuilder: (_, _, _) =>
                                             Container(
                                           color: DuckColors.surface,
                                           child: const Icon(
@@ -389,7 +400,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ],
           );
@@ -397,7 +408,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: DuckColors.primary),
         ),
-        error: (_, __) => const DuckEmptyState(
+        error: (_, _) => const DuckEmptyState(
           message: '프로필을 불러올 수 없어요.',
           icon: PhosphorIconsBold.warning,
         ),

@@ -12,6 +12,7 @@ import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
 import '../../goods/services/goods_service.dart';
 import '../../subscription/services/subscription_service.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_item_tile.dart';
 import '../widgets/catalog_setup_form.dart';
@@ -37,7 +38,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
   void _invalidateAll() {
     ref.invalidate(catalogItemsProvider(widget.catalogId));
     ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
-    setState(() => _changed = true);
+    if (mounted) setState(() => _changed = true);
   }
 
   /// 비소유자: 아이템 사진 크게 보기
@@ -64,7 +65,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                         ? Image.network(
                             item.photoUrl!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => _previewPlaceholder(),
+                            errorBuilder: (_, _, _) => _previewPlaceholder(),
                           )
                         : _previewPlaceholder(),
                   ),
@@ -232,6 +233,10 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
         DuckSnackBar.success(context, '수집 완료!');
       }
       _invalidateAll();
+    } on PhotoLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 사진을 ${AppConstants.freePhotoLimit}장까지 업로드할 수 있어요.');
+      }
     } catch (e) {
       if (mounted) {
         DuckSnackBar.error(context, '업로드에 실패했어요');
@@ -292,6 +297,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
 
     // Get items for each character
     final items = await service.getItems(widget.catalogId);
+    if (!mounted) return;
 
     // Build CharacterSetupData from existing data (with IDs for in-place update)
     final charSetupList = characters.map((ch) {
@@ -362,7 +368,8 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
   Future<void> _editItem(String itemId) async {
     final service = ref.read(catalogServiceProvider);
     final items = await service.getItems(widget.catalogId);
-    final item = items.firstWhere((i) => i.id == itemId);
+    final item = items.where((i) => i.id == itemId).firstOrNull;
+    if (item == null) return;
     if (!mounted) return;
 
     final result = await Navigator.of(context).push<bool>(
@@ -406,99 +413,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       await service.deleteItem(itemId);
       ref.invalidate(catalogItemsProvider(widget.catalogId));
       ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
-      setState(() => _changed = true);
-    }
-  }
-
-  void _showFabOptions(bool hasCharacters, {String? category}) {
-    if (category == 'card') {
-      _addItem(category: 'card');
-      return;
-    }
-    if (!hasCharacters) {
-      _addItem();
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              decoration: BoxDecoration(
-                color: DuckColors.textLight,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsBold.user),
-              title: const Text('캐릭터 추가'),
-              subtitle: const Text('새 캐릭터 그룹을 만들어요'),
-              onTap: () {
-                Navigator.pop(context);
-                _addCharacter();
-              },
-            ),
-            ListTile(
-              leading: const Icon(PhosphorIconsBold.plus),
-              title: const Text('아이템 추가'),
-              subtitle: const Text('미분류 아이템을 추가해요'),
-              onTap: () {
-                Navigator.pop(context);
-                _addItem();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _addCharacter() async {
-    final nameController = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('캐릭터 추가'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            hintText: '캐릭터 이름',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(context, nameController.text.trim()),
-            child: const Text('추가'),
-          ),
-        ],
-      ),
-    );
-    // Delay dispose to let dialog exit animation finish
-    Future.delayed(const Duration(milliseconds: 300), nameController.dispose);
-
-    if (result != null && result.isNotEmpty) {
-      if (ProfanityFilter.containsProfanity(result)) {
-        if (mounted) DuckSnackBar.error(context, '부적절한 표현이 포함되어 있어요');
-        return;
-      }
-      final service = ref.read(catalogServiceProvider);
-      await service.addCharacter(
-        catalogId: widget.catalogId,
-        name: result,
-      );
-      ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
-      ref.invalidate(catalogCharactersProvider(widget.catalogId));
+      if (!mounted) return;
       setState(() => _changed = true);
     }
   }
@@ -578,7 +493,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       await service.updateCharacter(ch.id, {'name': result});
       ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
       ref.invalidate(catalogCharactersProvider(widget.catalogId));
-      setState(() => _changed = true);
+      if (mounted) setState(() => _changed = true);
     }
   }
 
@@ -607,6 +522,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       await service.deleteCharacter(ch.id);
       ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
       ref.invalidate(catalogCharactersProvider(widget.catalogId));
+      if (!mounted) return;
       setState(() => _changed = true);
     }
   }
@@ -1126,9 +1042,13 @@ class _CharacterCatalogEditScreenState
       ref.invalidate(catalogItemsProvider(widget.catalogId));
 
       if (mounted) Navigator.of(context).pop(true);
+    } on PhotoLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 사진을 ${AppConstants.freePhotoLimit}장까지 업로드할 수 있어요.');
+      }
     } on CatalogItemLimitExceededException {
       if (mounted) {
-        DuckSnackBar.error(context, '무료 플랜은 도감당 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요');
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감당 아이템을 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요.');
       }
     } catch (e) {
       if (mounted) {

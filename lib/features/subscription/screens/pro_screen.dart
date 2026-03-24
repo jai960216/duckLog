@@ -28,12 +28,18 @@ class _ProScreenState extends ConsumerState<ProScreen> {
     super.initState();
     _purchaseService = ref.read(purchaseServiceProvider);
     _loadProducts();
-    _purchaseService.startListening();
+    _purchaseService.onVerificationComplete = (success) {
+      if (success && mounted) {
+        ref.invalidate(photoUsageProvider);
+        ref.invalidate(catalogCountProvider);
+        DuckSnackBar.info(context, 'Pro 구독이 활성화되었어요!');
+      }
+    };
   }
 
   @override
   void dispose() {
-    _purchaseService.dispose();
+    _purchaseService.onVerificationComplete = null;
     super.dispose();
   }
 
@@ -54,7 +60,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: DuckColors.primary),
         ),
-        error: (_, __) => const Center(child: Text('정보를 불러올 수 없어요')),
+        error: (_, _) => const Center(child: Text('정보를 불러올 수 없어요')),
         data: (sub) {
           final isPro = sub.isPro;
           final photoUsage = usageAsync.valueOrNull ?? 0;
@@ -311,12 +317,12 @@ class _ProScreenState extends ConsumerState<ProScreen> {
         await ref.read(subscriptionServiceProvider).cancelSubscription();
         ref.invalidate(subscriptionProvider);
         ref.invalidate(isProProvider);
-        if (mounted) {
+        if (context.mounted) {
           Navigator.of(context).pop();
           DuckSnackBar.info(context, '구독이 해지되었어요');
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           DuckSnackBar.error(context, '해지에 실패했어요');
         }
       }
@@ -483,8 +489,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
     try {
       await _purchaseService.restorePurchases();
       if (mounted) {
-        ref.invalidate(subscriptionProvider);
-        DuckSnackBar.info(context, '구매 복원을 요청했어요');
+        DuckSnackBar.info(context, '구매 복원을 요청했어요. 잠시 기다려주세요.');
       }
     } catch (e) {
       if (mounted) DuckSnackBar.error(context, '복원에 실패했어요');

@@ -89,6 +89,26 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
   late double _coverFitY;
   bool _isLoading = false;
 
+  // Cached controllers for character/item name fields (keyed by object identity)
+  final Map<int, TextEditingController> _charNameControllers = {};
+  final Map<int, TextEditingController> _itemNameControllers = {};
+
+  TextEditingController _charController(CharacterSetupData ch) {
+    final key = identityHashCode(ch);
+    return _charNameControllers.putIfAbsent(
+      key,
+      () => TextEditingController(text: ch.name),
+    );
+  }
+
+  TextEditingController _itemController(ItemSetupData item) {
+    final key = identityHashCode(item);
+    return _itemNameControllers.putIfAbsent(
+      key,
+      () => TextEditingController(text: item.name),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,6 +132,12 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
   void dispose() {
     _nameController.dispose();
     _workTagController.dispose();
+    for (final c in _charNameControllers.values) {
+      c.dispose();
+    }
+    for (final c in _itemNameControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -161,6 +187,9 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
   }
 
   void _removeItemFromCharacter(int charIndex, int itemIndex) {
+    final item = _characters[charIndex].items[itemIndex];
+    final key = identityHashCode(item);
+    _itemNameControllers.remove(key)?.dispose();
     setState(() {
       _characters[charIndex].items.removeAt(itemIndex);
     });
@@ -225,6 +254,12 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
   }
 
   void _removeCharacter(int charIndex) {
+    final ch = _characters[charIndex];
+    // Dispose controllers for this character and its items
+    _charNameControllers.remove(identityHashCode(ch))?.dispose();
+    for (final item in ch.items) {
+      _itemNameControllers.remove(identityHashCode(item))?.dispose();
+    }
     setState(() {
       _characters.removeAt(charIndex);
     });
@@ -440,9 +475,9 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
                           CachedNetworkImage(
                             imageUrl: ch.photoUrl!,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) =>
+                            placeholder: (_, _) =>
                                 Container(color: DuckColors.textLight),
-                            errorWidget: (_, __, ___) => Container(
+                            errorWidget: (_, _, _) => Container(
                               color: DuckColors.textLight,
                               child: const Icon(PhosphorIconsBold.user,
                                   size: 18, color: DuckColors.textSub),
@@ -481,7 +516,7 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
                 child: SizedBox(
                   height: 36,
                   child: TextField(
-                    controller: TextEditingController(text: ch.name),
+                    controller: _charController(ch),
                     onChanged: (v) => ch.name = v,
                     style: const TextStyle(
                       fontSize: 14,
@@ -537,9 +572,7 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
                       child: SizedBox(
                         height: 36,
                         child: TextField(
-                          controller: TextEditingController(
-                            text: ch.items[ii].name,
-                          ),
+                          controller: _itemController(ch.items[ii]),
                           onChanged: (v) => ch.items[ii].name = v,
                           style: const TextStyle(fontSize: 13),
                           decoration: const InputDecoration(
@@ -697,9 +730,9 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
               alignment: Alignment(0, _coverFitY * 2 - 1),
               width: double.infinity,
               height: 280,
-              placeholder: (_, __) =>
+              placeholder: (_, _) =>
                   Container(height: 280, color: DuckColors.surface),
-              errorWidget: (_, __, ___) =>
+              errorWidget: (_, _, _) =>
                   _buildCoverPlaceholder(),
             ),
           )

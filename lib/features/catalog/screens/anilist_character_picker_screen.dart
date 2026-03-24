@@ -8,7 +8,7 @@ import '../../calendar/services/igdb_service.dart';
 import '../widgets/catalog_setup_form.dart';
 
 /// 작품/게임 → 캐릭터 선택 피커
-/// Navigator.pop으로 List<CharacterSetupData>를 반환
+/// Navigator.pop으로 `List<CharacterSetupData>`를 반환
 class AnilistCharacterPickerScreen extends ConsumerStatefulWidget {
   const AnilistCharacterPickerScreen({super.key});
 
@@ -323,7 +323,7 @@ class _AnilistCharacterPickerScreenState
                   ? CachedNetworkImage(
                       imageUrl: work.coverImageUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) =>
+                      placeholder: (_, _) =>
                           Container(color: DuckColors.surface),
                       errorWidget: (_, e, s) => _buildCardPlaceholder(
                           PhosphorIconsBold.filmSlate),
@@ -357,7 +357,7 @@ class _AnilistCharacterPickerScreenState
                   ? CachedNetworkImage(
                       imageUrl: game.coverUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) =>
+                      placeholder: (_, _) =>
                           Container(color: DuckColors.surface),
                       errorWidget: (_, e, s) => _buildCardPlaceholder(
                           PhosphorIconsBold.gameController),
@@ -644,7 +644,7 @@ class _AnilistCharacterPickerScreenState
                     ? CachedNetworkImage(
                         imageUrl: imageUrl,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) =>
+                        placeholder: (_, _) =>
                             Container(color: DuckColors.surface),
                         errorWidget: (_, e, s) => Container(
                           color: DuckColors.surface,

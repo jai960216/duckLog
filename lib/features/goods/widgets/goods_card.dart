@@ -33,14 +33,14 @@ class GoodsCard extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: goods.photoUrls.first,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
+                      placeholder: (_, _) => Container(
                         color: DuckColors.surface,
                         child: const Icon(
                           PhosphorIconsBold.image,
                           color: DuckColors.textSub,
                         ),
                       ),
-                      errorWidget: (_, __, ___) => Container(
+                      errorWidget: (_, _, _) => Container(
                         color: DuckColors.surface,
                         child: const Icon(
                           PhosphorIconsBold.imageBroken,

@@ -180,7 +180,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       builder: (context) => AlertDialog(
         title: const Text('회원탈퇴'),
         content: const Text(
-          '정말 탈퇴하시겠어요?\n모든 데이터가 삭제되며 복구할 수 없어요.',
+          '정말 탈퇴하시겠어요?\n모든 데이터가 삭제되며 복구할 수 없어요.\n\n'
+          '⚠️ Pro 구독 중이라면 Play Store → 구독에서 직접 해지해주세요. '
+          '탈퇴만으로는 결제가 자동 취소되지 않아요.',
         ),
         actions: [
           TextButton(
@@ -260,11 +262,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                                 width: 96,
                                 height: 96,
                                 fit: BoxFit.cover,
-                                placeholder: (_, __) => const Center(
+                                placeholder: (_, _) => const Center(
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2),
                                 ),
-                                errorWidget: (_, __, ___) => Center(
+                                errorWidget: (_, _, _) => Center(
                                   child: Image.asset('assets/images/duck_avatar.png', width: 48, height: 48),
                                 ),
                               ),

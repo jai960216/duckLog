@@ -102,10 +102,10 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
                       child: CachedNetworkImage(
                         imageUrl: item.photoUrls.first,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
+                        placeholder: (_, _) => Container(
                           color: DuckColors.surface,
                         ),
-                        errorWidget: (_, __, ___) => Container(
+                        errorWidget: (_, _, _) => Container(
                           color: DuckColors.surface,
                           child: const Icon(
                             PhosphorIconsBold.imageBroken,
@@ -121,7 +121,7 @@ class _CollectionScreenState extends ConsumerState<CollectionScreen> {
             loading: () => const Center(
               child: CircularProgressIndicator(color: DuckColors.primary),
             ),
-            error: (_, __) => const DuckEmptyState(
+            error: (_, _) => const DuckEmptyState(
               message: '데이터를 불러올 수 없어요.',
               icon: PhosphorIconsBold.warning,
             ),

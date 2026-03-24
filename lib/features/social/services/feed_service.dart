@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/catalog.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/models/profile.dart';
+import '../../../services/block_service.dart';
 import '../../auth/services/auth_service.dart';
 
 /// A feed item: goods + owner profile
@@ -21,7 +22,9 @@ final feedServiceProvider = Provider<FeedService>((ref) {
 final feedProvider = FutureProvider.autoDispose.family<List<FeedItem>, int>(
   (ref, page) async {
     final service = ref.read(feedServiceProvider);
-    return await service.getFeed(page: page);
+    final blockedIds = await ref.watch(blockedUserIdsProvider.future);
+    final items = await service.getFeed(page: page);
+    return items.where((item) => !blockedIds.contains(item.goods.userId)).toList();
   },
 );
 
@@ -30,7 +33,9 @@ final recommendedFeedProvider =
     FutureProvider.autoDispose.family<List<FeedItem>, int>(
   (ref, page) async {
     final service = ref.read(feedServiceProvider);
-    return await service.getRecommendedFeed(page: page);
+    final blockedIds = await ref.watch(blockedUserIdsProvider.future);
+    final items = await service.getRecommendedFeed(page: page);
+    return items.where((item) => !blockedIds.contains(item.goods.userId)).toList();
   },
 );
 
@@ -70,16 +75,17 @@ class FeedService {
 
   /// Fetch public goods from all users (excluding self), newest first.
   /// Joins with profiles and likes to get owner info + like data.
-  Future<List<FeedItem>> getFeed({int page = 0, int pageSize = 20}) async {
+  Future<List<FeedItem>> getFeed({int page = 0, int pageSize = 50}) async {
     final from = page * pageSize;
     final to = from + pageSize - 1;
 
-    // Fetch goods with profile + likes count
+    // Fetch only public visibility goods — friends-only goods should not
+    // appear in the general feed since we can't verify friendship here.
     final response = await _client
         .from('goods')
         .select('*, profiles!goods_user_id_fkey(*), likes(count)')
         .neq('user_id', _userId ?? '')
-        .inFilter('visibility', ['public', 'friends'])
+        .eq('visibility', 'public')
         .order('created_at', ascending: false)
         .range(from, to);
 
@@ -123,7 +129,7 @@ class FeedService {
   /// Signals: same work tag (+3), same category (+2), friend (+2),
   /// like count (+1 per 5 likes, max +3), recency (+1 if < 7 days)
   Future<List<FeedItem>> getRecommendedFeed(
-      {int page = 0, int pageSize = 20}) async {
+      {int page = 0, int pageSize = 50}) async {
     if (_userId == null) return [];
 
     // 1. 내 프로필 데이터 수집 (병렬)
@@ -204,7 +210,8 @@ class FeedService {
     final candidateUserIds = {...relatedUserIds, ...friendIds};
     if (candidateUserIds.isEmpty) return [];
 
-    // 2. 후보 유저들의 public 굿즈 조회 (넉넉하게 가져와서 스코어링)
+    // 2. 후보 유저들의 굿즈 조회 (넉넉하게 가져와서 스코어링)
+    // public + friends visibility를 가져온 뒤, friends-only는 실제 친구 것만 유지
     final fetchSize = pageSize * 4; // 스코어링 후 잘라내기 위해 여유있게
     final response = await _client
         .from('goods')
@@ -230,12 +237,16 @@ class FeedService {
     }
 
     // 3. FeedItem 생성 + 스코어 계산
+    // friends-only 굿즈는 실제 친구의 것만 포함
     final scored = <(FeedItem, double)>[];
     final now = DateTime.now();
 
     for (final row in response) {
       final profileData = row['profiles'] as Map<String, dynamic>?;
       if (profileData == null) continue;
+      final visibility = row['visibility'] as String?;
+      final ownerId = row['user_id'] as String?;
+      if (visibility == 'friends' && !friendIds.contains(ownerId)) continue;
       final likesData = row['likes'] as List?;
       final likeCount = (likesData != null && likesData.isNotEmpty)
           ? (likesData[0]['count'] as int? ?? 0)

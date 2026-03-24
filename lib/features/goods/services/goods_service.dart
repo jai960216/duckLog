@@ -323,9 +323,64 @@ class GoodsService {
     }
   }
 
-  // Delete
+  // Delete (with storage cleanup and usage counter decrement)
   Future<void> deleteGoods(String id) async {
+    // 1. Fetch the goods item to get photo URLs before deletion
+    try {
+      final response = await _client
+          .from('goods')
+          .select('photo_urls')
+          .eq('id', id)
+          .maybeSingle();
+
+      if (response != null) {
+        final photoUrls = response['photo_urls'] != null
+            ? List<String>.from(response['photo_urls'] as List)
+            : <String>[];
+
+        // 2. Delete photos from storage
+        if (photoUrls.isNotEmpty) {
+          try {
+            final paths = photoUrls
+                .map((url) => _extractStoragePath(url, 'goods-photos'))
+                .where((p) => p != null)
+                .cast<String>()
+                .toList();
+            if (paths.isNotEmpty) {
+              await _client.storage.from('goods-photos').remove(paths);
+            }
+          } catch (_) {
+            // Storage cleanup failure should not block DB deletion
+          }
+
+          // 3. Decrement photo usage counter
+          try {
+            final subService = SubscriptionService(_client);
+            await subService.decrementPhotoUsage(count: photoUrls.length);
+          } catch (_) {
+            // decrement_photo_usage RPC may not exist yet — ignore
+          }
+        }
+      }
+    } catch (_) {
+      // If fetching the item fails, still proceed with DB deletion
+    }
+
+    // 4. Delete the DB row
     await _client.from('goods').delete().eq('id', id);
+  }
+
+  /// Extract the storage path (e.g. "userId/timestamp.ext") from a public URL.
+  /// Returns null if the URL doesn't match the expected bucket pattern.
+  String? _extractStoragePath(String url, String bucket) {
+    // Public URL format: .../storage/v1/object/public/<bucket>/<path>
+    final marker = '/storage/v1/object/public/$bucket/';
+    final idx = url.indexOf(marker);
+    if (idx == -1) return null;
+    final path = url.substring(idx + marker.length);
+    // Strip any query parameters
+    final qIdx = path.indexOf('?');
+    return qIdx == -1 ? path : path.substring(0, qIdx);
   }
 
   // Monthly stats (goods count, categories, work tags)
@@ -456,11 +511,10 @@ class GoodsService {
       {String bucket = 'goods-photos',
       SubscriptionService? subscriptionService}) async {
     // Check photo upload limit for free users
-    if (subscriptionService != null) {
-      final canUpload = await subscriptionService.checkCanUploadPhoto();
-      if (!canUpload) {
-        throw PhotoLimitExceededException();
-      }
+    final subService = subscriptionService ?? SubscriptionService(_client);
+    final canUpload = await subService.checkCanUploadPhoto();
+    if (!canUpload) {
+      throw PhotoLimitExceededException();
     }
 
     final ext = fileName.split('.').last;
@@ -469,9 +523,7 @@ class GoodsService {
     await _client.storage.from(bucket).uploadBinary(path, bytes);
 
     // Increment photo usage counter
-    if (subscriptionService != null) {
-      await subscriptionService.incrementPhotoUsage();
-    }
+    await subService.incrementPhotoUsage();
 
     return _client.storage.from(bucket).getPublicUrl(path);
   }

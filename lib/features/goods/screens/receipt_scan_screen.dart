@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,9 @@ import '../../../config/colors.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/models/receipt.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../../shared/utils/constants.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
+import '../services/goods_service.dart';
 import '../services/receipt_service.dart';
 
 enum _ScanState { idle, result }
@@ -115,6 +117,10 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (mounted) {
         DuckSnackBar.success(context, '영수증이 저장되었어요!');
         Navigator.of(context).pop(true);
+      }
+    } on PhotoLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 사진을 ${AppConstants.freePhotoLimit}장까지 업로드할 수 있어요.');
       }
     } catch (e) {
       if (mounted) {

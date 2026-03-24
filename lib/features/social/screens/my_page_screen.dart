@@ -72,7 +72,7 @@ class MyPageScreen extends ConsumerWidget {
                                   fit: BoxFit.cover,
                                   width: 56,
                                   height: 56,
-                                  errorBuilder: (_, __, ___) => Center(
+                                  errorBuilder: (_, _, _) => Center(
                                     child: Image.asset('assets/images/duck_avatar.png', width: 32, height: 32),
                                   ),
                                 ),
@@ -192,7 +192,7 @@ class MyPageScreen extends ConsumerWidget {
           loading: () => const Center(
             child: CircularProgressIndicator(color: DuckColors.primary),
           ),
-          error: (_, __) => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
         ),
         const SizedBox(height: 16),
 

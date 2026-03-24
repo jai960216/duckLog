@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -18,12 +19,18 @@ class FcmService {
 
   final _messaging = FirebaseMessaging.instance;
   final _localNotifications = FlutterLocalNotificationsPlugin();
+  bool _initialized = false;
+  StreamSubscription? _tokenRefreshSub;
+  StreamSubscription? _onMessageSub;
+  StreamSubscription? _onMessageOpenedAppSub;
 
   static const _channelId = 'ducklog_notifications';
   static const _channelName = 'DuckLog 알림';
 
   /// FCM 초기화
   Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
     // flutter_local_notifications 초기화
     await _localNotifications.initialize(
       const InitializationSettings(
@@ -71,13 +78,13 @@ class FcmService {
     }
 
     // 토큰 갱신 시 자동 저장
-    _messaging.onTokenRefresh.listen(_saveToken);
+    _tokenRefreshSub = _messaging.onTokenRefresh.listen(_saveToken);
 
     // 포그라운드 메시지 → 로컬 알림으로 표시
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    _onMessageSub = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
     // 알림 탭으로 앱 열었을 때
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageTap);
+    _onMessageOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageTap);
 
     // 앱 종료 상태에서 알림 탭으로 열었을 때
     final initialMessage = await _messaging.getInitialMessage();
@@ -120,6 +127,17 @@ class FcmService {
       }
     }
     await _messaging.deleteToken();
+  }
+
+  /// 스트림 구독 해제
+  void dispose() {
+    _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = null;
+    _onMessageSub?.cancel();
+    _onMessageSub = null;
+    _onMessageOpenedAppSub?.cancel();
+    _onMessageOpenedAppSub = null;
+    _initialized = false;
   }
 
   /// Hive 알림 설정 → FCM 토픽 구독 동기화

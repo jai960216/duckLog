@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../config/colors.dart';
+import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../goods/services/goods_service.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/mfc_service.dart';
 import '../services/catalog_service.dart';
 import 'catalog_detail_screen.dart';
@@ -87,6 +90,14 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
             builder: (_) => CatalogDetailScreen(catalogId: catalog.id),
           ),
         );
+      }
+    } on CatalogItemLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감당 아이템을 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요.');
+      }
+    } on CatalogLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감을 ${AppConstants.freeCatalogLimit}개까지 만들 수 있어요.');
       }
     } catch (e) {
       if (mounted) {
@@ -359,9 +370,9 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
                     ? CachedNetworkImage(
                         imageUrl: figure.imageUrl!,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) =>
+                        placeholder: (_, _) =>
                             Container(color: DuckColors.surface),
-                        errorWidget: (_, __, ___) => Container(
+                        errorWidget: (_, _, _) => Container(
                           color: DuckColors.surface,
                           child: const Icon(PhosphorIconsBold.image,
                               size: 20, color: DuckColors.textLight),

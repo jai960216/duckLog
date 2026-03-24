@@ -165,7 +165,7 @@ class _ReceiptListScreenState extends ConsumerState<ReceiptListScreen> {
                 child:
                     CircularProgressIndicator(color: DuckColors.primary),
               ),
-              error: (_, __) => const DuckEmptyState(
+              error: (_, _) => const DuckEmptyState(
                 message: '영수증을 불러올 수 없어요.',
                 icon: PhosphorIconsBold.warning,
               ),
@@ -277,7 +277,7 @@ class _ReceiptListScreenState extends ConsumerState<ReceiptListScreen> {
               child: Image.network(
                 receipt.photoUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   color: DuckColors.surface,
                   child: const Icon(
                     PhosphorIconsBold.receipt,
@@ -467,7 +467,7 @@ class _ReceiptListScreenState extends ConsumerState<ReceiptListScreen> {
                         receipt.photoUrl,
                         width: double.infinity,
                         fit: BoxFit.fitWidth,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           height: 200,
                           color: DuckColors.surface,
                           child: const Center(

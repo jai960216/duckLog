@@ -93,7 +93,7 @@ class BlockListScreen extends ConsumerWidget {
         },
         loading: () => const Center(
             child: CircularProgressIndicator(color: DuckColors.primary)),
-        error: (_, __) =>
+        error: (_, _) =>
             const DuckEmptyState(message: '차단 목록을 불러올 수 없어요.'),
       ),
     );

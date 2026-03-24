@@ -7,6 +7,7 @@ import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/services/goods_service.dart';
 import '../../subscription/services/subscription_service.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../models/tcg_types.dart';
 import '../services/tcg_provider_map.dart';
 import '../services/catalog_service.dart';
@@ -121,9 +122,13 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
           );
         }
       }
+    } on CatalogLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감을 ${AppConstants.freeCatalogLimit}개까지 만들 수 있어요.');
+      }
     } on CatalogItemLimitExceededException {
       if (mounted) {
-        DuckSnackBar.error(context, '무료 플랜은 도감당 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요');
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감당 아이템을 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요.');
       }
     } catch (e) {
       if (mounted) {
@@ -267,8 +272,8 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
                     ? CachedNetworkImage(
                         imageUrl: set.imageUrl!,
                         fit: BoxFit.contain,
-                        placeholder: (_, __) => _setPlaceholder(),
-                        errorWidget: (_, __, ___) => _setPlaceholder(),
+                        placeholder: (_, _) => _setPlaceholder(),
+                        errorWidget: (_, _, _) => _setPlaceholder(),
                       )
                     : _setPlaceholder(),
               ),
@@ -632,9 +637,9 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
                       ? CachedNetworkImage(
                           imageUrl: card.imageUrl!,
                           fit: BoxFit.cover,
-                          placeholder: (_, __) =>
+                          placeholder: (_, _) =>
                               Container(color: DuckColors.surface),
-                          errorWidget: (_, __, ___) => _iconPlaceholder(),
+                          errorWidget: (_, _, _) => _iconPlaceholder(),
                         )
                       : _iconPlaceholder(),
                 ),

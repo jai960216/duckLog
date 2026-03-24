@@ -46,7 +46,7 @@ class NotificationListScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: DuckColors.primary),
         ),
-        error: (_, __) => const Center(child: Text('알림을 불러올 수 없어요')),
+        error: (_, _) => const Center(child: Text('알림을 불러올 수 없어요')),
         data: (notifications) {
           if (notifications.isEmpty) {
             return const DuckEmptyState(
@@ -58,7 +58,7 @@ class NotificationListScreen extends ConsumerWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: notifications.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final item = notifications[index];
               final title = item['title'] as String? ?? '';

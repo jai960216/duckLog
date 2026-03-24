@@ -6,7 +6,10 @@ import '../../../config/colors.dart';
 import '../../../shared/models/catalog.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/profanity_filter.dart';
+import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../goods/services/goods_service.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/catalog_service.dart';
 
 class CatalogFormScreen extends ConsumerStatefulWidget {
@@ -125,6 +128,14 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
       }
 
       if (mounted) Navigator.of(context).pop(true);
+    } on PhotoLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 사진을 ${AppConstants.freePhotoLimit}장까지 업로드할 수 있어요.');
+      }
+    } on CatalogLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감을 ${AppConstants.freeCatalogLimit}개까지 만들 수 있어요.');
+      }
     } catch (e) {
       if (mounted) {
         DuckSnackBar.error(context, '저장에 실패했어요');
@@ -263,7 +274,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
               alignment: Alignment(0, _coverFitY * 2 - 1),
               width: double.infinity,
               height: 280,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   _coverPlaceholder(),
             ),
           )

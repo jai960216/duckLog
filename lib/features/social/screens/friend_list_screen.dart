@@ -91,7 +91,7 @@ class _FriendListScreenState extends ConsumerState<FriendListScreen>
                       );
                     },
                     loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                   ),
                 ],
               ),
@@ -380,9 +380,9 @@ class _FriendSearchSheetState extends ConsumerState<_FriendSearchSheet> {
                     child: CachedNetworkImage(
                       imageUrl: profile.avatarUrl!,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Center(
+                      placeholder: (_, _) => Center(
                           child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
-                      errorWidget: (_, __, ___) => Center(
+                      errorWidget: (_, _, _) => Center(
                           child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
                     ),
                   )
@@ -528,7 +528,7 @@ class _FriendsTabState extends ConsumerState<_FriendsTab> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: DuckColors.primary),
       ),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
         message: '친구 목록을 불러올 수 없어요.',
         icon: PhosphorIconsBold.warning,
       ),
@@ -640,7 +640,7 @@ class _ReceivedRequestsTabState extends ConsumerState<_ReceivedRequestsTab> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: DuckColors.primary),
       ),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
         message: '요청 목록을 불러올 수 없어요.',
         icon: PhosphorIconsBold.warning,
       ),
@@ -733,7 +733,7 @@ class _SentRequestsTabState extends ConsumerState<_SentRequestsTab> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: DuckColors.primary),
       ),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
         message: '요청 목록을 불러올 수 없어요.',
         icon: PhosphorIconsBold.warning,
       ),
@@ -786,9 +786,9 @@ class _ProfileTile extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: profile!.avatarUrl!,
                   fit: BoxFit.cover,
-                  placeholder: (_, __) => Center(
+                  placeholder: (_, _) => Center(
                       child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
-                  errorWidget: (_, __, ___) => Center(
+                  errorWidget: (_, _, _) => Center(
                       child: Image.asset('assets/images/duck_avatar.png', width: 24, height: 24)),
                 ),
               )

@@ -105,9 +105,9 @@ class _CharacterGroupSectionState extends State<CharacterGroupSection>
                         ? CachedNetworkImage(
                             imageUrl: ch.photoUrl!,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) =>
+                            placeholder: (_, _) =>
                                 Container(color: DuckColors.textLight),
-                            errorWidget: (_, __, ___) => Container(
+                            errorWidget: (_, _, _) => Container(
                               color: DuckColors.textLight,
                               child: const Icon(PhosphorIconsBold.user,
                                   size: 18, color: DuckColors.textSub),

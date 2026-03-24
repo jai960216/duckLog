@@ -108,4 +108,14 @@ class SubscriptionService {
   Future<void> incrementPhotoUsage() async {
     await _client.rpc('increment_photo_usage');
   }
+
+  /// Decrement photo usage counter when photos are deleted.
+  /// Calls `decrement_photo_usage` RPC which may not exist yet in the DB.
+  /// Wrapped in try-catch at call sites so failure won't block deletion.
+  Future<void> decrementPhotoUsage({int count = 1}) async {
+    // TODO: Create `decrement_photo_usage` RPC in Supabase that mirrors
+    // `increment_photo_usage` but subtracts from monthly_usage.photo_count.
+    // Until the RPC exists this call will throw, but callers catch the error.
+    await _client.rpc('decrement_photo_usage', params: {'count': count});
+  }
 }

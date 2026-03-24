@@ -14,11 +14,23 @@ interface ServiceAccountKey {
   token_uri: string;
 }
 
+// base64url 인코딩 (Google OAuth JWT에 필수)
+function base64url(input: string): string {
+  return btoa(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64urlFromBytes(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 // JWT 생성 → access_token 발급
 async function getAccessToken(sa: ServiceAccountKey): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = btoa(
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64url(
     JSON.stringify({
       iss: sa.client_email,
       scope: "https://www.googleapis.com/auth/androidpublisher",
@@ -51,7 +63,7 @@ async function getAccessToken(sa: ServiceAccountKey): Promise<string> {
     new TextEncoder().encode(signInput)
   );
 
-  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)));
+  const sig = base64urlFromBytes(new Uint8Array(signature));
   const jwt = `${signInput}.${sig}`;
 
   const tokenRes = await fetch(sa.token_uri, {
@@ -61,6 +73,10 @@ async function getAccessToken(sa: ServiceAccountKey): Promise<string> {
   });
 
   const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) {
+    console.error("Token error:", JSON.stringify(tokenData));
+    throw new Error("Failed to get access token");
+  }
   return tokenData.access_token;
 }
 
@@ -118,39 +134,46 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Google Play API로 구독 상태 검증
+    // Google Play API v2로 구독 상태 검증
     const sa: ServiceAccountKey = JSON.parse(SERVICE_ACCOUNT_JSON);
     const accessToken = await getAccessToken(sa);
     const packageName = "com.ducklog.ducklog";
 
-    const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptions/${product_id}/tokens/${purchase_token}`;
+    const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptionsv2/tokens/${purchase_token}`;
 
     const verifyRes = await fetch(verifyUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!verifyRes.ok) {
-      return new Response(
-        JSON.stringify({ error: "Google Play verification failed" }),
-        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
     const data = await verifyRes.json();
-    // paymentState: 0=pending, 1=received, 2=free_trial, 3=deferred
-    if (data.paymentState !== 1 && data.paymentState !== 2) {
+
+    if (!verifyRes.ok) {
+      console.error("Google Play API error:", JSON.stringify(data));
       return new Response(
-        JSON.stringify({ error: "Payment not completed" }),
+        JSON.stringify({ error: "Google Play verification failed", detail: data }),
         { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const startTime = data.startTimeMillis
-      ? new Date(parseInt(data.startTimeMillis)).toISOString()
-      : null;
-    const expiryTime = data.expiryTimeMillis
-      ? new Date(parseInt(data.expiryTimeMillis)).toISOString()
-      : null;
+    console.log("Google Play response:", JSON.stringify(data));
+
+    // subscriptionsv2 응답: subscriptionState로 검증
+    const state = data.subscriptionState;
+    const validStates = [
+      "SUBSCRIPTION_STATE_ACTIVE",
+      "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+    ];
+    if (!validStates.includes(state)) {
+      return new Response(
+        JSON.stringify({ error: "Subscription not active", state }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // lineItems에서 시작/만료 시간 추출
+    const lineItem = data.lineItems?.[0];
+    const startTime = data.startTime ?? null;
+    const expiryTime = lineItem?.expiryTime ?? null;
 
     // 구독 정보 DB에 저장 (service role — RLS 우회)
     const client = getServiceClient();

@@ -184,7 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               backgroundColor: DuckColors.surface,
                             ),
                           ),
-                          error: (_, __) => const Text('-'),
+                          error: (_, _) => const Text('-'),
                         ),
                       ],
                     ),
@@ -247,7 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ],
           ),
@@ -320,7 +320,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: List.generate(3, (_) => const GoodsCardSkeleton()),
             ),
           ),
-          error: (_, __) => const DuckEmptyState(
+          error: (_, _) => const DuckEmptyState(
             message: '데이터를 불러올 수 없어요.',
             icon: PhosphorIconsBold.warning,
           ),

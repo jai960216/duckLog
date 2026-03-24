@@ -257,7 +257,7 @@ class DuckListSkeleton extends StatelessWidget {
       child: ListView.builder(
         physics: const NeverScrollableScrollPhysics(),
         itemCount: itemCount,
-        itemBuilder: (_, __) => itemSkeleton,
+        itemBuilder: (_, _) => itemSkeleton,
       ),
     );
   }

@@ -137,7 +137,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen>
       loading: () => const DuckListSkeleton(
         itemSkeleton: FeedCardSkeleton(),
       ),
-      error: (_, __) => DuckEmptyState(
+      error: (_, _) => DuckEmptyState(
         message: '피드를 불러올 수 없어요.\n다시 시도해주세요.',
         actionText: '새로고침',
         icon: PhosphorIconsBold.warning,

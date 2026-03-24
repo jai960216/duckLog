@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/receipt.dart';
 import '../../auth/services/auth_service.dart';
+import '../../subscription/services/subscription_service.dart';
+import 'goods_service.dart';
 
 final receiptServiceProvider = Provider<ReceiptService>((ref) {
   return ReceiptService(ref.read(supabaseClientProvider));
@@ -104,11 +106,22 @@ class ReceiptService {
   }
 
   /// Upload receipt photo to private bucket and return signed URL
-  Future<String> uploadReceiptPhoto(Uint8List bytes, String fileName) async {
+  Future<String> uploadReceiptPhoto(Uint8List bytes, String fileName,
+      {SubscriptionService? subscriptionService}) async {
+    // Check photo upload limit for free users
+    final subService = subscriptionService ?? SubscriptionService(_client);
+    final canUpload = await subService.checkCanUploadPhoto();
+    if (!canUpload) {
+      throw PhotoLimitExceededException();
+    }
+
     final ext = fileName.split('.').last;
     final path = '$_userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     await _client.storage.from('receipt-photos').uploadBinary(path, bytes);
+
+    // Increment photo usage counter
+    await subService.incrementPhotoUsage();
 
     // Private bucket → use signed URL (valid for 1 year)
     final signedUrl = await _client.storage
@@ -197,8 +210,30 @@ class ReceiptService {
     return Receipt.fromJson(response);
   }
 
+  /// Extract storage path from a signed URL
+  String? _extractSignedStoragePath(String url, String bucket) {
+    // Signed URL format: .../storage/v1/object/sign/<bucket>/<path>?token=...
+    final marker = '/storage/v1/object/sign/$bucket/';
+    final idx = url.indexOf(marker);
+    if (idx == -1) return null;
+    final pathWithQuery = url.substring(idx + marker.length);
+    final qIdx = pathWithQuery.indexOf('?');
+    return qIdx == -1 ? pathWithQuery : pathWithQuery.substring(0, qIdx);
+  }
+
   /// Delete a receipt
   Future<void> deleteReceipt(String id) async {
+    // Fetch receipt to get photo_url before deleting
+    try {
+      final receipt = await getReceiptById(id);
+      final storagePath =
+          _extractSignedStoragePath(receipt.photoUrl, 'receipt-photos');
+      if (storagePath != null) {
+        await _client.storage.from('receipt-photos').remove([storagePath]);
+      }
+    } catch (_) {
+      // If fetching receipt or deleting photo fails, still proceed with DB deletion
+    }
     await _client.from('receipts').delete().eq('id', id);
   }
 }

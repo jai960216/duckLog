@@ -108,7 +108,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                       color: DuckColors.primary,
                     ),
                   ),
-                  error: (_, __) => const Text('-'),
+                  error: (_, _) => const Text('-'),
                 ),
               ],
             ),
@@ -220,7 +220,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 child: CircularProgressIndicator(color: DuckColors.primary),
               ),
             ),
-            error: (_, __) => const DuckEmptyState(
+            error: (_, _) => const DuckEmptyState(
               message: '데이터를 불러올 수 없어요.',
               icon: PhosphorIconsBold.warning,
             ),
@@ -344,7 +344,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 child: CircularProgressIndicator(color: DuckColors.primary),
               ),
             ),
-            error: (_, __) => const DuckEmptyState(
+            error: (_, _) => const DuckEmptyState(
               message: '데이터를 불러올 수 없어요.',
               icon: PhosphorIconsBold.warning,
             ),
@@ -434,7 +434,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 child: CircularProgressIndicator(color: DuckColors.primary),
               ),
             ),
-            error: (_, __) => const DuckEmptyState(
+            error: (_, _) => const DuckEmptyState(
               message: '데이터를 불러올 수 없어요.',
               icon: PhosphorIconsBold.warning,
             ),

@@ -256,7 +256,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2))),
-        error: (_, __) => const SizedBox.shrink(),
+        error: (_, _) => const SizedBox.shrink(),
       ),
     );
   }
@@ -543,7 +543,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           )),
         ),
       ),
-      error: (_, __) => Center(
+      error: (_, _) => Center(
         child: Text(
           '일정을 불러올 수 없어요.',
           style: Theme.of(context).textTheme.bodySmall,

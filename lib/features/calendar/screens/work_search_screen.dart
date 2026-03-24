@@ -663,7 +663,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
                                     httpHeaders: workType == 'webtoon'
                                         ? _refererFromUrl(work.coverUrl)
                                         : const {},
-                                    errorWidget: (_, __, ___) =>
+                                    errorWidget: (_, _, _) =>
                                         _typeIcon(workType),
                                   ),
                                 )
@@ -815,7 +815,7 @@ class _AnimeTrendingTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -844,7 +844,7 @@ class _AnimeAiringTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -879,7 +879,7 @@ class _MangaTrendingTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -909,7 +909,7 @@ class _MangaPublishingTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -946,7 +946,7 @@ class _GamePopularTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -978,7 +978,7 @@ class _GameUpcomingTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -1015,7 +1015,7 @@ class _WebtoonTrendingTab extends ConsumerWidget {
               ),
             ),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const DuckEmptyState(
+      error: (_, _) => const DuckEmptyState(
           message: '네트워크를 확인해주세요.', icon: PhosphorIconsBold.wifiSlash),
     );
   }
@@ -1110,7 +1110,7 @@ class _WebtoonWeekdayTabState extends ConsumerState<_WebtoonWeekdayTab> {
                   ),
             loading: () =>
                 const Center(child: CircularProgressIndicator()),
-            error: (_, __) => const DuckEmptyState(
+            error: (_, _) => const DuckEmptyState(
                 message: '네트워크를 확인해주세요.',
                 icon: PhosphorIconsBold.wifiSlash),
           ),
@@ -1187,14 +1187,14 @@ class _WebtoonCard extends StatelessWidget {
                     height: 64,
                     fit: BoxFit.cover,
                     httpHeaders: _webtoonReferer(webtoon.provider),
-                    placeholder: (_, __) => Container(
+                    placeholder: (_, _) => Container(
                       width: 48,
                       height: 64,
                       color: DuckColors.webtoonLight,
                       child: const Icon(PhosphorIconsBold.bookOpen,
                           size: 20, color: DuckColors.webtoon),
                     ),
-                    errorWidget: (_, __, ___) => Container(
+                    errorWidget: (_, _, _) => Container(
                       width: 48,
                       height: 64,
                       color: DuckColors.webtoonLight,
@@ -1566,8 +1566,8 @@ class _CoverImage extends StatelessWidget {
               width: 48,
               height: 64,
               fit: BoxFit.cover,
-              placeholder: (_, __) => _placeholder(),
-              errorWidget: (_, __, ___) => _placeholder(),
+              placeholder: (_, _) => _placeholder(),
+              errorWidget: (_, _, _) => _placeholder(),
             )
           : _placeholder(),
     );

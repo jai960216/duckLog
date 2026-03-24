@@ -9,6 +9,7 @@ import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/onboarding_screen.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/social/screens/suspension_screen.dart';
+import 'features/subscription/services/purchase_service.dart';
 import 'services/fcm_service.dart';
 import 'shell.dart';
 
@@ -80,7 +81,7 @@ class AuthGate extends ConsumerWidget {
         return const _ProfileGate();
       },
       loading: () => const _SplashScreen(),
-      error: (_, __) => const LoginScreen(),
+      error: (_, _) => const LoginScreen(),
     );
   }
 }
@@ -94,11 +95,23 @@ class _ProfileGate extends ConsumerStatefulWidget {
 
 class _ProfileGateState extends ConsumerState<_ProfileGate> {
   bool _fcmInitialized = false;
+  bool _purchaseInitialized = false;
 
   void _initFcm() {
     if (_fcmInitialized) return;
     _fcmInitialized = true;
     FcmService.instance.initialize();
+  }
+
+  void _initPurchaseListener() {
+    _purchaseInitialized = true;
+    ref.read(purchaseServiceProvider).startListening();
+  }
+
+  void _resetPurchaseListener() {
+    if (!_purchaseInitialized) return;
+    _purchaseInitialized = false;
+    ref.read(purchaseServiceProvider).reset();
   }
 
   @override
@@ -108,19 +121,22 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
     return profileAsync.when(
       data: (profile) {
         if (profile == null) {
+          _resetPurchaseListener();
           return const OnboardingScreen();
         }
         if (profile.isSuspended) {
+          _resetPurchaseListener();
           return SuspensionScreen(
             userId: profile.id,
             nickname: profile.nickname,
           );
         }
         _initFcm();
+        _initPurchaseListener();
         return const AppShell();
       },
       loading: () => const _SplashScreen(),
-      error: (_, __) => const OnboardingScreen(),
+      error: (_, _) => const OnboardingScreen(),
     );
   }
 }

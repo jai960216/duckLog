@@ -47,7 +47,7 @@ class CatalogItemTile extends StatelessWidget {
                         ? Image.network(
                             item.photoUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _placeholder(),
+                            errorBuilder: (_, _, _) => _placeholder(),
                           )
                         : _placeholder(),
                   ),

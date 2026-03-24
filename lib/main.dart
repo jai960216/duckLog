@@ -42,8 +42,10 @@ void main() async {
   );
 
   if (!SupabaseConfig.isConfigured) {
-    if (kDebugMode) debugPrint('⚠️ SUPABASE_URL/SUPABASE_ANON_KEY not set. '
-        'Use --dart-define-from-file=.env.json');
+    if (kDebugMode) {
+      debugPrint('⚠️ SUPABASE_URL/SUPABASE_ANON_KEY not set. '
+          'Use --dart-define-from-file=.env.json');
+    }
     runApp(
       MaterialApp(
         home: Scaffold(

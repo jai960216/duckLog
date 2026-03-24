@@ -9,6 +9,7 @@ import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/services/goods_service.dart';
 import '../../subscription/services/subscription_service.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/catalog_service.dart';
 
 class CatalogItemFormScreen extends ConsumerStatefulWidget {
@@ -130,9 +131,13 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
           if (mounted) Navigator.of(context).pop(true);
         }
       }
+    } on PhotoLimitExceededException {
+      if (mounted) {
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 사진을 ${AppConstants.freePhotoLimit}장까지 업로드할 수 있어요.');
+      }
     } on CatalogItemLimitExceededException {
       if (mounted) {
-        DuckSnackBar.error(context, '무료 플랜은 도감당 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요');
+        ProUpsellDialog.show(context, feature: '무료 플랜에서는 도감당 아이템을 ${AppConstants.freeCatalogItemLimit}개까지 추가할 수 있어요.');
       }
     } catch (e) {
       if (mounted) {
@@ -277,7 +282,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
                         height: 160,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _photoPlaceholder(),
+                        errorBuilder: (_, _, _) => _photoPlaceholder(),
                       )
                     : _photoPlaceholder(),
           ),
