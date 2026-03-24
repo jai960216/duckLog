@@ -101,11 +101,20 @@ Deno.serve(async (req) => {
         break;
 
       case 5: // ON_HOLD
-      case 6: // IN_GRACE_PERIOD
         await client
           .from("subscriptions")
           .update({
-            status: "expired",
+            status: "on_hold",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId);
+        break;
+
+      case 6: // IN_GRACE_PERIOD — Google이 결제 재시도 중, Pro 유지
+        await client
+          .from("subscriptions")
+          .update({
+            status: "active",
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", userId);

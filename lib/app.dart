@@ -104,6 +104,7 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
   }
 
   void _initPurchaseListener() {
+    if (_purchaseInitialized) return;
     _purchaseInitialized = true;
     ref.read(purchaseServiceProvider).startListening();
   }
