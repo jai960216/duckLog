@@ -29,6 +29,11 @@ serve(async (req) => {
 
     // 1. 요일별 웹툰
     const weekdays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+    // Naver API returns full day names (MONDAY, TUESDAY, etc.)
+    const dayNameToShort: Record<string, string> = {
+      MONDAY: "MON", TUESDAY: "TUE", WEDNESDAY: "WED",
+      THURSDAY: "THU", FRIDAY: "FRI", SATURDAY: "SAT", SUNDAY: "SUN",
+    };
     const weekdayResponse = await fetchWithRetry(
       `${NAVER_API}/weekday?order=user`
     );
@@ -37,21 +42,22 @@ serve(async (req) => {
     if (weekdayData.titleListMap) {
       for (const [day, titles] of Object.entries(weekdayData.titleListMap)) {
         const dayUpper = day.toUpperCase();
-        if (!weekdays.includes(dayUpper)) continue;
+        const dayShort = dayNameToShort[dayUpper] || dayUpper;
+        if (!weekdays.includes(dayShort)) continue;
 
         for (const t of titles as NaverWebtoon[]) {
           const id = `naver_${t.titleId}`;
           const existing = webtoonMap.get(id);
           if (existing) {
-            if (!existing.update_days.includes(dayUpper)) {
-              existing.update_days.push(dayUpper);
+            if (!existing.update_days.includes(dayShort)) {
+              existing.update_days.push(dayShort);
             }
           } else {
             webtoonMap.set(id, {
               id,
               title: t.titleName,
               provider: "NAVER",
-              update_days: [dayUpper],
+              update_days: [dayShort],
               url: `https://comic.naver.com/webtoon/list?titleId=${t.titleId}`,
               thumbnail: t.thumbnailUrl ? [t.thumbnailUrl] : [],
               is_end: t.finish || false,
