@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getServiceClient } from "../_shared/supabase-client.ts";
-import { fetchWithRetry } from "../_shared/rate-limit.ts";
+import { fetchWithRetry, withConcurrencyLimit } from "../_shared/rate-limit.ts";
 import type { WebtoonRow } from "../_shared/types.ts";
 
 const NAVER_API = "https://comic.naver.com/api/webtoon/titlelist";
@@ -74,34 +74,55 @@ serve(async (req) => {
       }
     }
 
-    // 2. dailyPlus (매일+)
+    // 2. dailyPlus (매일+) — 개별 API에서 실제 연재 요일 조회
     const dailyResponse = await fetchWithRetry(
       `${NAVER_API}/weekday?week=dailyPlus&order=user`
     );
     const dailyData = await dailyResponse.json();
 
     if (dailyData.titleList) {
-      for (const t of dailyData.titleList as NaverWebtoon[]) {
+      const dailyTitles = (dailyData.titleList as NaverWebtoon[])
+        .filter((t) => !webtoonMap.has(`naver_${t.titleId}`));
+
+      // 개별 웹툰 정보 API에서 publishDayOfWeekList 가져오기 (동시 5개)
+      const dailyTasks = dailyTitles.map((t) => async () => {
         const id = `naver_${t.titleId}`;
-        if (!webtoonMap.has(id)) {
-          webtoonMap.set(id, {
-            id,
-            title: t.titleName,
-            provider: "NAVER",
-            update_days: weekdays,
-            url: `https://comic.naver.com/webtoon/list?titleId=${t.titleId}`,
-            thumbnail: t.thumbnailUrl ? [t.thumbnailUrl] : [],
-            is_end: t.finish || false,
-            is_free: true,
-            is_updated: !t.rest,
-            age_grade: t.adult ? 19 : 0,
-            free_wait_hour: null,
-            authors: t.author
-              ? t.author.split(/\s*[,/]\s*/).filter(Boolean)
-              : [],
-          });
-        }
-      }
+        let updateDays: string[] = [];
+        try {
+          const infoRes = await fetchWithRetry(
+            `https://comic.naver.com/api/article/list/info?titleId=${t.titleId}`
+          );
+          if (infoRes.ok) {
+            const info = await infoRes.json();
+            const pubDays = info.publishDayOfWeekList as string[] | undefined;
+            if (pubDays && pubDays.length > 0) {
+              // SATURDAY → SAT, MONDAY → MON 등
+              updateDays = pubDays.map((d: string) =>
+                dayNameToShort[d.toUpperCase()] || d.substring(0, 3).toUpperCase()
+              );
+            }
+          }
+        } catch (_) {}
+
+        webtoonMap.set(id, {
+          id,
+          title: t.titleName,
+          provider: "NAVER",
+          update_days: updateDays,
+          url: `https://comic.naver.com/webtoon/list?titleId=${t.titleId}`,
+          thumbnail: t.thumbnailUrl ? [t.thumbnailUrl] : [],
+          is_end: t.finish || false,
+          is_free: true,
+          is_updated: !t.rest,
+          age_grade: t.adult ? 19 : 0,
+          free_wait_hour: null,
+          authors: t.author
+            ? t.author.split(/\s*[,/]\s*/).filter(Boolean)
+            : [],
+        });
+      });
+
+      await withConcurrencyLimit(dailyTasks, 2);
     }
 
     // 3. 완결 웹툰 (페이지네이션)
