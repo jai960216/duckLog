@@ -73,6 +73,9 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
                         if (result == true) {
                           ref.invalidate(
                               goodsDetailProvider(widget.goodsId));
+                          ref.invalidate(goodsListProvider);
+                          ref.invalidate(monthlySpendingProvider);
+                          ref.invalidate(monthlyStatsProvider);
                         }
                       } else if (value == 'delete') {
                         _confirmDelete(context, ref, goods);

@@ -403,7 +403,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
           children: [
             // Photos
             _buildPhotoSection(),

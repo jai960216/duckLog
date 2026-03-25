@@ -1,7 +1,7 @@
 name: ducklog
 description: "내 덕질을 기록한다 - 서브컬처 팬을 위한 덕질 기록 + 콘텐츠 캘린더 앱"
 publish_to: 'none'
-version: 1.0.0+10
+version: 1.0.0+13
 
 environment:
   sdk: ^3.11.0
