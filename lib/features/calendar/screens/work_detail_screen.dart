@@ -89,7 +89,9 @@ class _WorkDetailScreenState extends ConsumerState<WorkDetailScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: EdgeInsets.only(
+          bottom: 32 + MediaQuery.of(context).viewPadding.bottom,
+        ),
         children: [
           // ── 커버 이미지 + 작품 정보 ──
           _buildHeader(context, workType),

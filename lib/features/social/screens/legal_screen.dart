@@ -15,7 +15,10 @@ class LegalScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.fromLTRB(
+          20, 20, 20,
+          20 + MediaQuery.of(context).viewPadding.bottom,
+        ),
         child: Text(
           content,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.8),

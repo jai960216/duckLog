@@ -1,7 +1,7 @@
 import { getServiceClient } from "../_shared/supabase-client.ts";
 
 // Google Play Real-time Developer Notifications (RTDN) webhook
-// Play Console → Monetization → Monetization setup → Real-time developer notifications
+// Cloud Pub/Sub → Push subscription → Edge Function
 
 const WEBHOOK_SECRET = Deno.env.get("PLAY_WEBHOOK_SECRET");
 if (!WEBHOOK_SECRET) {
@@ -13,15 +13,24 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  // Bearer token 인증
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
+  // Pub/Sub Push 엔드포인트 URL에 ?secret=... 쿼리 파라미터로 인증
+  const url = new URL(req.url);
+  const secret = url.searchParams.get("secret");
+  if (secret !== WEBHOOK_SECRET) {
     return new Response("Unauthorized", { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const notification = body.subscriptionNotification;
+
+    // Pub/Sub Push 메시지 포맷: { message: { data: "base64...", ... }, subscription: "..." }
+    let payload;
+    if (body.message?.data) {
+      payload = JSON.parse(atob(body.message.data));
+    } else {
+      payload = body;
+    }
+    const notification = payload.subscriptionNotification;
 
     if (!notification) {
       return new Response(JSON.stringify({ ok: true, skipped: true }), {

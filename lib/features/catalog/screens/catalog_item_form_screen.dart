@@ -168,7 +168,10 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
         body: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.fromLTRB(
+              20, 20, 20,
+              20 + MediaQuery.of(context).viewPadding.bottom,
+            ),
             children: [
               // Quick add toggle (only for create mode)
               if (!_isEditing) ...[

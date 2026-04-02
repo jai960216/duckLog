@@ -49,7 +49,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         title: const Text('지출 통계'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.fromLTRB(
+          20, 20, 20,
+          20 + MediaQuery.of(context).viewPadding.bottom,
+        ),
         children: [
           // Month selector
           Row(

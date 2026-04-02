@@ -233,7 +233,10 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
   Widget _buildResultState() {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(
+        20, 20, 20,
+        20 + MediaQuery.of(context).viewPadding.bottom,
+      ),
       children: [
         // Receipt image preview
         if (_photoBytes != null)

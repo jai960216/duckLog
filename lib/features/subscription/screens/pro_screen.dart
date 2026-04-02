@@ -67,7 +67,10 @@ class _ProScreenState extends ConsumerState<ProScreen> {
           final catalogCount = catalogCountAsync.valueOrNull ?? 0;
 
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.fromLTRB(
+              20, 20, 20,
+              20 + MediaQuery.of(context).viewPadding.bottom,
+            ),
             children: [
               // 현재 플랜 카드
               _buildPlanCard(context, sub, isPro),

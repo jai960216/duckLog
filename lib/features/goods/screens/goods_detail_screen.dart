@@ -128,7 +128,10 @@ class _GoodsDetailScreenState extends ConsumerState<GoodsDetailScreen> {
     final likeCount = _likeCount ?? goods.likeCount;
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(
+        20, 20, 20,
+        20 + MediaQuery.of(context).viewPadding.bottom,
+      ),
       children: [
         // Photos
         if (goods.photoUrls.isNotEmpty) ...[

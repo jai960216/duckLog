@@ -59,7 +59,10 @@ class _NotificationSettingsScreenState
               child: CircularProgressIndicator(color: DuckColors.primary),
             )
           : ListView(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.fromLTRB(
+                20, 20, 20,
+                20 + MediaQuery.of(context).viewPadding.bottom,
+              ),
               children: [
                 DuckCard(
                   margin: EdgeInsets.zero,

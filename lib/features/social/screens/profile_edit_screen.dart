@@ -238,7 +238,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.fromLTRB(
+            20, 20, 20,
+            20 + MediaQuery.of(context).viewPadding.bottom,
+          ),
           children: [
             // Avatar
             Center(
