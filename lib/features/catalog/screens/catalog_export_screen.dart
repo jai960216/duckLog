@@ -15,7 +15,19 @@ import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../subscription/services/subscription_service.dart';
+import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/catalog_service.dart';
+
+enum _ExportSize {
+  small(1.0, '소'),
+  medium(2.0, '중'),
+  large(3.0, '대');
+
+  final double pixelRatio;
+  final String label;
+  const _ExportSize(this.pixelRatio, this.label);
+}
 
 class CatalogExportScreen extends ConsumerStatefulWidget {
   final String catalogId;
@@ -34,6 +46,9 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
   Catalog? _catalog;
   List<CatalogCharacter> _characters = [];
   List<CatalogItem> _ungrouped = [];
+
+  bool _showWatermark = true;
+  _ExportSize _exportSize = _ExportSize.medium;
 
   @override
   void initState() {
@@ -103,6 +118,39 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
     }
   }
 
+  Future<void> _toggleWatermark(bool value) async {
+    if (!value) {
+      // 워터마크 제거는 Pro 전용
+      final isPro = await ref.read(isProProvider.future);
+      if (!isPro) {
+        if (mounted) {
+          ProUpsellDialog.show(
+            context,
+            feature: '워터마크 제거는 Pro 전용 기능이에요.',
+          );
+        }
+        return;
+      }
+    }
+    setState(() => _showWatermark = value);
+  }
+
+  void _openPreview() {
+    if (_catalog == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FullPreviewScreen(
+          repaintKey: _repaintKey,
+          catalog: _catalog!,
+          characters: _characters,
+          ungrouped: _ungrouped,
+          showWatermark: _showWatermark,
+        ),
+      ),
+    );
+  }
+
   Future<void> _exportAndShare() async {
     if (_isExporting) return;
     setState(() => _isExporting = true);
@@ -111,7 +159,8 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
       final boundary = _repaintKey.currentContext!.findRenderObject()
           as RenderRepaintBoundary;
       await Future.delayed(const Duration(milliseconds: 100));
-      final image = await boundary.toImage(pixelRatio: 2.0);
+      final image =
+          await boundary.toImage(pixelRatio: _exportSize.pixelRatio);
       final byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) throw Exception('이미지 생성에 실패했어요');
@@ -134,6 +183,8 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final resWidth = (360 * _exportSize.pixelRatio).toInt();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('이미지 내보내기'),
@@ -141,26 +192,104 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
           icon: const Icon(PhosphorIconsBold.caretLeft),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(PhosphorIconsBold.magnifyingGlassPlus, size: 22),
+            tooltip: '미리보기',
+            onPressed: _isLoading ? null : _openPreview,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                // Export options
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom:
+                          BorderSide(color: DuckColors.surface, width: 1),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Watermark toggle
+                      Row(
+                        children: [
+                          const Icon(PhosphorIconsBold.textT,
+                              size: 18, color: DuckColors.textSub),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text('워터마크',
+                                style: TextStyle(
+                                    fontSize: 14, color: DuckColors.text)),
+                          ),
+                          SizedBox(
+                            height: 28,
+                            child: Switch(
+                              value: _showWatermark,
+                              onChanged: _toggleWatermark,
+                              activeColor: DuckColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Size selector
+                      Row(
+                        children: [
+                          const Icon(PhosphorIconsBold.resize,
+                              size: 18, color: DuckColors.textSub),
+                          const SizedBox(width: 10),
+                          const Text('크기',
+                              style: TextStyle(
+                                  fontSize: 14, color: DuckColors.text)),
+                          const Spacer(),
+                          _SizeChips(
+                            selected: _exportSize,
+                            onChanged: (s) =>
+                                setState(() => _exportSize = s),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Resolution hint
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${resWidth}px 너비',
+                          style: const TextStyle(
+                              fontSize: 11, color: DuckColors.textLight),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Preview
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: RepaintBoundary(
-                        key: _repaintKey,
-                        child: _ExportWidget(
-                          catalog: _catalog!,
-                          characters: _characters,
-                          ungrouped: _ungrouped,
+                  child: GestureDetector(
+                    onTap: _openPreview,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: RepaintBoundary(
+                          key: _repaintKey,
+                          child: _ExportWidget(
+                            catalog: _catalog!,
+                            characters: _characters,
+                            ungrouped: _ungrouped,
+                            showWatermark: _showWatermark,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
+
                 // Bottom share button
                 Container(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -190,7 +319,8 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
                                 ),
                               )
                             : const Icon(PhosphorIconsBold.shareFat),
-                        label: Text(_isExporting ? '내보내는 중...' : '공유하기'),
+                        label:
+                            Text(_isExporting ? '내보내는 중...' : '공유하기'),
                       ),
                     ),
                   ),
@@ -201,16 +331,108 @@ class _CatalogExportScreenState extends ConsumerState<CatalogExportScreen> {
   }
 }
 
+// --- Size selector chips ---
+
+class _SizeChips extends StatelessWidget {
+  final _ExportSize selected;
+  final ValueChanged<_ExportSize> onChanged;
+
+  const _SizeChips({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: _ExportSize.values.map((s) {
+        final isSelected = s == selected;
+        return Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: GestureDetector(
+            onTap: () => onChanged(s),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? DuckColors.primary : DuckColors.surface,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                s.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : DuckColors.textSub,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// --- Full-screen preview ---
+
+class _FullPreviewScreen extends StatelessWidget {
+  final GlobalKey repaintKey;
+  final Catalog catalog;
+  final List<CatalogCharacter> characters;
+  final List<CatalogItem> ungrouped;
+  final bool showWatermark;
+
+  const _FullPreviewScreen({
+    required this.repaintKey,
+    required this.catalog,
+    required this.characters,
+    required this.ungrouped,
+    required this.showWatermark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('미리보기'),
+        leading: IconButton(
+          icon: const Icon(PhosphorIconsBold.caretLeft),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: InteractiveViewer(
+        minScale: 0.5,
+        maxScale: 4.0,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _ExportWidget(
+              catalog: catalog,
+              characters: characters,
+              ungrouped: ungrouped,
+              showWatermark: showWatermark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The widget that gets captured as an image
 class _ExportWidget extends StatelessWidget {
   final Catalog catalog;
   final List<CatalogCharacter> characters;
   final List<CatalogItem> ungrouped;
+  final bool showWatermark;
 
   const _ExportWidget({
     required this.catalog,
     required this.characters,
     required this.ungrouped,
+    this.showWatermark = true,
   });
 
   @override
@@ -235,19 +457,29 @@ class _ExportWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Cover image
+          // Cover image — catalog_card.dart와 동일한 OverflowBox 패턴
           if (catalog.coverUrl != null && catalog.coverUrl!.isNotEmpty)
             SizedBox(
               height: 100,
-              child: CachedNetworkImage(
-                imageUrl: catalog.coverUrl!,
-                fit: BoxFit.cover,
-                alignment: Alignment(0, catalog.coverFitY * 2 - 1),
-                errorWidget: (_, e, s) => Container(
-                  color: DuckColors.surface,
-                  child: const Center(
-                    child: Icon(PhosphorIconsBold.image,
-                        color: DuckColors.textLight, size: 32),
+              width: double.infinity,
+              child: ClipRect(
+                child: OverflowBox(
+                  maxHeight: 280,
+                  alignment: Alignment.center,
+                  child: CachedNetworkImage(
+                    imageUrl: catalog.coverUrl!,
+                    height: 280,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    alignment: Alignment(0, catalog.coverFitY * 2 - 1),
+                    errorWidget: (_, e, s) => Container(
+                      height: 100,
+                      color: DuckColors.surface,
+                      child: const Center(
+                        child: Icon(PhosphorIconsBold.image,
+                            color: DuckColors.textLight, size: 32),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -301,20 +533,23 @@ class _ExportWidget extends StatelessWidget {
           if (ungrouped.isNotEmpty) _buildUngroupedSection(),
 
           // Watermark
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: const Center(
-              child: Text(
-                'DuckLog',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: DuckColors.textLight,
-                  letterSpacing: 1.2,
+          if (showWatermark)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: const Center(
+                child: Text(
+                  'DuckLog',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: DuckColors.textLight,
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(height: 14),
         ],
       ),
     );

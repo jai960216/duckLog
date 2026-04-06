@@ -32,7 +32,6 @@ class CatalogItemFormScreen extends ConsumerStatefulWidget {
 class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
 
   String? _photoUrl;
   XFile? _newPhoto;
@@ -48,7 +47,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
     if (_isEditing) {
       final item = widget.existingItem!;
       _nameController.text = item.name;
-      _descriptionController.text = item.description ?? '';
       _photoUrl = item.photoUrl;
     }
   }
@@ -56,7 +54,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -75,12 +72,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final desc = _descriptionController.text.trim();
-    if (desc.isNotEmpty && ProfanityFilter.containsProfanity(desc)) {
-      DuckSnackBar.error(context, '설명에 부적절한 표현이 포함되어 있어요');
-      return;
-    }
-
     setState(() => _isLoading = true);
     try {
       final service = ref.read(catalogServiceProvider);
@@ -95,9 +86,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
       if (_isEditing) {
         await service.updateItem(widget.existingItem!.id, {
           'name': _nameController.text.trim(),
-          'description': _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim(),
           'photo_url': photoUrl,
         });
         if (mounted) Navigator.of(context).pop(true);
@@ -107,9 +95,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
           catalogId: widget.catalogId,
           characterId: widget.characterId,
           name: _nameController.text.trim(),
-          description: _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim(),
           photoUrl: photoUrl,
           subscriptionService: subService,
         );
@@ -119,7 +104,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
         if (_quickAddMode) {
           // Reset for next item
           _nameController.clear();
-          _descriptionController.clear();
           setState(() {
             _newPhoto = null;
             _photoUrl = null;
@@ -221,15 +205,6 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
                 if (v == null || v.trim().isEmpty) return '아이템 이름을 입력해주세요';
                 return ProfanityFilter.validate(v);
               },
-              ),
-              const SizedBox(height: 16),
-
-              // Description
-              DuckTextField(
-                label: '설명 (선택)',
-                hint: '추가 정보가 있다면 적어주세요',
-                controller: _descriptionController,
-                maxLines: 2,
               ),
               const SizedBox(height: 32),
 

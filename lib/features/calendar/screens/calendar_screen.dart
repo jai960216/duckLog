@@ -95,6 +95,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     }
   }
 
+  Future<void> _onEntryTap(AiringEntry entry) async {
+    // custom 일정은 상세페이지 없음
+    if (entry.isCustom) return;
+
+    final works = ref.read(followedWorksProvider).valueOrNull;
+    if (works == null) return;
+
+    final work = works
+        .where((w) => w.externalId == entry.externalId && w.workType == entry.workType)
+        .firstOrNull;
+    if (work == null) return;
+
+    await _openWorkDetail(work);
+  }
 
   Future<void> _confirmUnfollow(String id, String title) async {
     final confirmed = await showDialog<bool>(
@@ -480,50 +494,53 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               _ => (DuckColors.accent, PhosphorIconsBold.gameController, '출시'),
             };
 
-            return DuckCard(
-              child: Row(
-                children: [
-                  // Type indicator
-                  Container(
-                    width: 4,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: indicatorColor,
-                      borderRadius: BorderRadius.circular(2),
+            return GestureDetector(
+              onTap: () => _onEntryTap(entry),
+              child: DuckCard(
+                child: Row(
+                  children: [
+                    // Type indicator
+                    Container(
+                      width: 4,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: indicatorColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Event info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.displayTitle,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Icon(
-                              iconData,
-                              size: 12,
-                              color: DuckColors.textSub,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              eventLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: DuckColors.textSub),
-                            ),
-                          ],
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    // Event info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.displayTitle,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                iconData,
+                                size: 12,
+                                color: DuckColors.textSub,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                eventLabel,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: DuckColors.textSub),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

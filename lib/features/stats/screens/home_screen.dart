@@ -264,21 +264,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => GoodsListScreen(
-                      title: '${Formatters.yearMonth(_selectedMonth)} 전체 기록',
-                      initialStartDate: _startOfMonth,
-                      initialEndDate: _endOfMonth,
-                    ),
-                  ));
-                },
-                child: Text(
-                  '전체보기',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: DuckColors.primary,
+              Material(
+                color: DuckColors.primarySurface,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const GoodsListScreen(
+                        title: '전체 기록',
+                        showDateFilter: true,
                       ),
+                    ));
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(PhosphorIconsBold.listBullets,
+                            size: 14, color: DuckColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          '전체보기',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: DuckColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
