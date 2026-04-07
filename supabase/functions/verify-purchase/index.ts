@@ -193,6 +193,12 @@ Deno.serve(async (req) => {
       { onConflict: "user_id" }
     );
 
+    // 서포터 배지 자동 부여
+    await client
+      .from("profiles")
+      .update({ is_supporter: true })
+      .eq("id", userId);
+
     return new Response(
       JSON.stringify({ ok: true, plan }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }

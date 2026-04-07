@@ -8,10 +8,14 @@ class AppConstants {
   // Pagination
   static const int pageSize = 20;
 
-  // Image compression
+  // Image compression — Free
   static const int thumbnailWidth = 300;
   static const int detailImageWidth = 1080;
   static const int imageQuality = 85;
+
+  // Image compression — Pro
+  static const int proDetailImageWidth = 2048;
+  static const int proImageQuality = 95;
 
   // Storage limits
   static const int maxImageSizeMb = 10;

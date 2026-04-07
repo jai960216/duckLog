@@ -8,6 +8,8 @@ import '../../../shared/models/goods.dart';
 import '../../../shared/models/receipt.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../../shared/utils/constants.dart';
+import '../../../shared/utils/image_quality.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/goods_service.dart';
 import '../services/receipt_service.dart';
@@ -44,12 +46,15 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     super.dispose();
   }
 
+  ImageQualitySettings get _iq => ImageQualitySettings.fromPro(
+      ref.read(isProProvider).valueOrNull ?? false);
+
   Future<void> _takePhoto() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 1080,
-      imageQuality: 90,
+      maxWidth: _iq.maxWidth,
+      imageQuality: _iq.quality,
     );
     if (picked != null) {
       final bytes = await picked.readAsBytes();
@@ -66,8 +71,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1080,
-      imageQuality: 90,
+      maxWidth: _iq.maxWidth,
+      imageQuality: _iq.quality,
     );
     if (picked != null) {
       final bytes = await picked.readAsBytes();

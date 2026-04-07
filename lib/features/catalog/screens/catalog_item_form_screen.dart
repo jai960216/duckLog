@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../../shared/utils/constants.dart';
+import '../../../shared/utils/image_quality.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/services/goods_service.dart';
@@ -57,12 +58,15 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
     super.dispose();
   }
 
+  ImageQualitySettings get _iq => ImageQualitySettings.fromPro(
+      ref.read(isProProvider).valueOrNull ?? false);
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1080,
-      imageQuality: 85,
+      maxWidth: _iq.maxWidth,
+      imageQuality: _iq.quality,
     );
     if (picked != null) {
       setState(() => _newPhoto = picked);

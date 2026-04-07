@@ -7,8 +7,10 @@ import '../../../config/colors.dart';
 import '../../../services/draft_service.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/constants.dart';
+import '../../../shared/utils/image_quality.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../../catalog/services/catalog_service.dart';
 import '../services/goods_service.dart';
@@ -224,12 +226,15 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
     });
   }
 
+  ImageQualitySettings get _iq => ImageQualitySettings.fromPro(
+      ref.read(isProProvider).valueOrNull ?? false);
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1080,
-      imageQuality: 85,
+      maxWidth: _iq.maxWidth,
+      imageQuality: _iq.quality,
     );
     if (picked != null) {
       setState(() => _newPhotos.add(picked));
@@ -240,8 +245,8 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 1080,
-      imageQuality: 85,
+      maxWidth: _iq.maxWidth,
+      imageQuality: _iq.quality,
     );
     if (picked != null) {
       setState(() => _newPhotos.add(picked));

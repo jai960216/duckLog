@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,8 +7,10 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/catalog.dart';
 import '../../../shared/models/goods.dart';
+import '../../../shared/utils/image_quality.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/utils/constants.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/services/goods_service.dart';
 import '../../subscription/widgets/pro_upsell_dialog.dart';
@@ -31,7 +35,12 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
   String _visibility = 'private';
   String? _coverUrl;
   XFile? _newCoverPhoto;
+  double _coverFitX = 0.5;
   double _coverFitY = 0.5;
+  double _coverScale = 1.0;
+  double _baseScale = 1.0;
+  Uint8List? _cachedCoverBytes;
+  bool _isPicking = false;
   bool _isLoading = false;
 
   bool get _isEditing => widget.existingCatalog != null;
@@ -47,7 +56,9 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
       _selectedCategory = c.category;
       _visibility = c.visibility;
       _coverUrl = c.coverUrl;
+      _coverFitX = c.coverFitX;
       _coverFitY = c.coverFitY;
+      _coverScale = c.coverScale;
     }
   }
 
@@ -59,15 +70,31 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
     super.dispose();
   }
 
+  ImageQualitySettings get _iq => ImageQualitySettings.fromPro(
+      ref.read(isProProvider).valueOrNull ?? false);
+
   Future<void> _pickCoverImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1080,
-      imageQuality: 85,
-    );
-    if (picked != null) {
-      setState(() => _newCoverPhoto = picked);
+    if (_isPicking) return;
+    _isPicking = true;
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: _iq.maxWidth,
+        imageQuality: _iq.quality,
+      );
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _newCoverPhoto = picked;
+          _cachedCoverBytes = bytes;
+          _coverFitX = 0.5;
+          _coverFitY = 0.5;
+          _coverScale = 1.0;
+        });
+      }
+    } finally {
+      _isPicking = false;
     }
   }
 
@@ -108,7 +135,9 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
               ? null
               : _workTagController.text.trim(),
           'cover_url': coverUrl,
+          'cover_fit_x': _coverFitX,
           'cover_fit_y': _coverFitY,
+          'cover_scale': _coverScale,
           'visibility': _visibility,
         });
       } else {
@@ -122,7 +151,9 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
               ? null
               : _workTagController.text.trim(),
           coverUrl: coverUrl,
+          coverFitX: _coverFitX,
           coverFitY: _coverFitY,
+          coverScale: _coverScale,
           visibility: _visibility,
         );
       }
@@ -236,7 +267,10 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
                   setState(() {
                     _coverUrl = null;
                     _newCoverPhoto = null;
+                    _cachedCoverBytes = null;
+                    _coverFitX = 0.5;
                     _coverFitY = 0.5;
+                    _coverScale = 1.0;
                   });
                 },
                 child: const Padding(
@@ -248,26 +282,15 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        if (_newCoverPhoto != null)
-          FutureBuilder<List<int>>(
-            future: _newCoverPhoto!.readAsBytes(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                return _buildCropGuideOverlay(
-                  Image.memory(
-                    snapshot.data! as dynamic,
-                    fit: BoxFit.cover,
-                    alignment: Alignment(0, _coverFitY * 2 - 1),
-                    width: double.infinity,
-                    height: 280,
-                  ),
-                );
-              }
-              return GestureDetector(
-                onTap: _pickCoverImage,
-                child: _coverPlaceholder(),
-              );
-            },
+        if (_cachedCoverBytes != null)
+          _buildCropGuideOverlay(
+            Image.memory(
+              _cachedCoverBytes!,
+              fit: BoxFit.cover,
+              alignment: Alignment(0, _coverFitY * 2 - 1),
+              width: double.infinity,
+              height: 280,
+            ),
           )
         else if (_coverUrl != null)
           _buildCropGuideOverlay(
@@ -290,7 +313,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
           const SizedBox(height: 6),
           const Center(
             child: Text(
-              '드래그하여 커버 영역을 조정할 수 있어요',
+              '드래그 또는 핀치하여 커버 영역을 조정할 수 있어요',
               style: TextStyle(fontSize: 12, color: DuckColors.textSub),
             ),
           ),
@@ -300,81 +323,138 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
   }
 
   Widget _buildCropGuideOverlay(Widget imageWidget) {
-    return GestureDetector(
-      onTap: _pickCoverImage,
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          _coverFitY =
-              (_coverFitY - details.delta.dy / 280).clamp(0.0, 1.0);
-        });
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          height: 280,
-          width: double.infinity,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              imageWidget,
-            // Top dark overlay
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 80,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.5),
-              ),
-            ),
-            // Bottom dark overlay
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 80,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.5),
-              ),
-            ),
-            // Center cover area border + label
-            Positioned(
-              top: 80,
-              left: 0,
-              right: 0,
-              height: 120,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.symmetric(
-                    horizontal: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      width: 1,
-                    ),
-                  ),
+    return SizedBox(
+      height: 280,
+      width: double.infinity,
+      child: Stack(
+        children: [
+          // 드래그/핀치 영역
+          Positioned.fill(
+            child: RawGestureDetector(
+              gestures: {
+                _EagerScaleGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                        _EagerScaleGestureRecognizer>(
+                  () => _EagerScaleGestureRecognizer(),
+                  (instance) {
+                    instance
+                      ..onStart = (_) {
+                        _baseScale = _coverScale;
+                      }
+                      ..onUpdate = (details) {
+                        setState(() {
+                          _coverScale =
+                              (_baseScale * details.scale).clamp(1.0, 3.0);
+                          _coverFitX = (_coverFitX -
+                                  details.focalPointDelta.dx /
+                                      (280 * _coverScale))
+                              .clamp(0.0, 1.0);
+                          _coverFitY = (_coverFitY -
+                                  details.focalPointDelta.dy /
+                                      (280 * _coverScale))
+                              .clamp(0.0, 1.0);
+                        });
+                      };
+                  },
                 ),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '커버에 표시되는 영역',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+              },
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxTx =
+                        constraints.maxWidth * (_coverScale - 1) / 2;
+                    final tx = (1 - _coverFitX * 2) * maxTx;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()
+                            ..translate(tx, 0.0)
+                            ..scale(_coverScale, _coverScale),
+                          child: imageWidget,
+                        ),
+                        // Top dark overlay
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 80,
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        // Bottom dark overlay
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 80,
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        // Center cover area border + label
+                        Positioned(
+                          top: 80,
+                          left: 0,
+                          right: 0,
+                          height: 120,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.symmetric(
+                                horizontal: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  '커버에 표시되는 영역',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
-            ],
           ),
-        ),
+          // 이미지 변경 버튼 (RawGestureDetector 바깥)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _pickCoverImage,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(PhosphorIconsBold.camera,
+                    size: 18, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -473,5 +553,13 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
         ),
       ),
     );
+  }
+}
+
+class _EagerScaleGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    super.addAllowedPointer(event);
+    resolve(GestureDisposition.accepted);
   }
 }

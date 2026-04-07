@@ -85,9 +85,14 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", userId);
+        // 서포터 배지 부여
+        await client
+          .from("profiles")
+          .update({ is_supporter: true })
+          .eq("id", userId);
         break;
 
-      case 3: // CANCELED
+      case 3: // CANCELED — 기간 끝까지 Pro 유지, 배지도 유지
         await client
           .from("subscriptions")
           .update({
@@ -107,6 +112,11 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", userId);
+        // 서포터 배지 해제
+        await client
+          .from("profiles")
+          .update({ is_supporter: false })
+          .eq("id", userId);
         break;
 
       case 5: // ON_HOLD

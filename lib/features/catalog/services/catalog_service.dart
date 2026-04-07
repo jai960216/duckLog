@@ -78,7 +78,9 @@ class CatalogService {
     String? category,
     String? workTag,
     String? coverUrl,
+    double coverFitX = 0.5,
     double coverFitY = 0.5,
+    double coverScale = 1.0,
     String visibility = 'private',
     SubscriptionService? subscriptionService,
   }) async {
@@ -96,7 +98,9 @@ class CatalogService {
       'category': category,
       'work_tag': workTag,
       'cover_url': coverUrl,
+      'cover_fit_x': coverFitX,
       'cover_fit_y': coverFitY,
+      'cover_scale': coverScale,
       'visibility': visibility,
     };
     final response =
@@ -519,7 +523,9 @@ class CatalogService {
     String? category,
     String? workTag,
     String? coverUrl,
+    double coverFitX = 0.5,
     double coverFitY = 0.5,
+    double coverScale = 1.0,
     String visibility = 'private',
     required List<Map<String, dynamic>> items,
   }) async {
@@ -530,7 +536,9 @@ class CatalogService {
       category: category,
       workTag: workTag,
       coverUrl: coverUrl,
+      coverFitX: coverFitX,
       coverFitY: coverFitY,
+      coverScale: coverScale,
       visibility: visibility,
     );
 
@@ -568,7 +576,9 @@ class CatalogService {
     String? category,
     String? workTag,
     String? coverUrl,
+    double coverFitX = 0.5,
     double coverFitY = 0.5,
+    double coverScale = 1.0,
     String visibility = 'private',
     required List<Map<String, dynamic>> characters,
   }) async {
@@ -579,7 +589,9 @@ class CatalogService {
       category: category,
       workTag: workTag,
       coverUrl: coverUrl,
+      coverFitX: coverFitX,
       coverFitY: coverFitY,
+      coverScale: coverScale,
       visibility: visibility,
     );
 

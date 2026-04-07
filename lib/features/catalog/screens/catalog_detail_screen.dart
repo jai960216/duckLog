@@ -7,6 +7,7 @@ import '../../../shared/models/catalog_character.dart';
 import '../../../shared/models/catalog_item.dart';
 import '../../../shared/models/goods.dart';
 import '../../../shared/utils/constants.dart';
+import '../../../shared/utils/image_quality.dart';
 import '../../../shared/utils/profanity_filter.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../auth/services/auth_service.dart';
@@ -208,10 +209,12 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
 
     try {
       final picker = ImagePicker();
+      final iq = ImageQualitySettings.fromPro(
+          ref.read(isProProvider).valueOrNull ?? false);
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1080,
-        imageQuality: 85,
+        maxWidth: iq.maxWidth,
+        imageQuality: iq.quality,
       );
       if (picked == null) return;
 
@@ -322,7 +325,9 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
           initialCategory: catalog.category,
           initialWorkTag: catalog.workTag,
           initialCoverUrl: catalog.coverUrl,
+          initialCoverFitX: catalog.coverFitX,
           initialCoverFitY: catalog.coverFitY,
+          initialCoverScale: catalog.coverScale,
           initialVisibility: catalog.visibility,
           characters: charSetupList,
         ),
@@ -873,7 +878,9 @@ class _CharacterCatalogEditScreen extends ConsumerStatefulWidget {
   final String? initialCategory;
   final String? initialWorkTag;
   final String? initialCoverUrl;
+  final double initialCoverFitX;
   final double initialCoverFitY;
+  final double initialCoverScale;
   final String initialVisibility;
   final List<CharacterSetupData> characters;
 
@@ -883,7 +890,9 @@ class _CharacterCatalogEditScreen extends ConsumerStatefulWidget {
     this.initialCategory,
     this.initialWorkTag,
     this.initialCoverUrl,
+    this.initialCoverFitX = 0.5,
     this.initialCoverFitY = 0.5,
+    this.initialCoverScale = 1.0,
     this.initialVisibility = 'private',
     required this.characters,
   });
@@ -905,7 +914,9 @@ class _CharacterCatalogEditScreenState
     required List<CharacterSetupData> characters,
     required String? coverUrl,
     required XFile? newCoverPhoto,
+    required double coverFitX,
     required double coverFitY,
+    required double coverScale,
   }) async {
     setState(() => _isLoading = true);
     try {
@@ -926,7 +937,9 @@ class _CharacterCatalogEditScreenState
         'category': category,
         'work_tag': workTag,
         'cover_url': finalCoverUrl,
+        'cover_fit_x': coverFitX,
         'cover_fit_y': coverFitY,
+        'cover_scale': coverScale,
         'visibility': visibility,
       });
 
@@ -1074,11 +1087,14 @@ class _CharacterCatalogEditScreenState
         initialCategory: widget.initialCategory,
         initialWorkTag: widget.initialWorkTag,
         initialCoverUrl: widget.initialCoverUrl,
+        initialCoverFitX: widget.initialCoverFitX,
         initialCoverFitY: widget.initialCoverFitY,
+        initialCoverScale: widget.initialCoverScale,
         initialVisibility: widget.initialVisibility,
         characters: widget.characters,
         isEditing: true,
         hideCharacters: widget.initialCategory == 'card',
+        isPro: ref.read(isProProvider).valueOrNull ?? false,
         isLoading: _isLoading,
         onSubmit: _onSubmit,
       ),

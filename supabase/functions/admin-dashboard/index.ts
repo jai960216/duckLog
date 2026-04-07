@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     if (!query.trim()) return json([]);
     const { data, error } = await client
       .from("profiles")
-      .select("id, nickname, avatar_url, is_verified, is_suspended")
+      .select("id, nickname, avatar_url, is_verified, is_suspended, is_supporter")
       .or(`nickname.ilike.%${query}%,friend_code.eq.${query}`)
       .limit(20);
     if (error) return json({ error: error.message }, 500);
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
         .from("subscriptions")
         .upsert({
           user_id: userId,
-          plan: "pro",
+          plan: "pro_monthly",
           status: "active",
           provider: "admin",
           current_period_start: new Date().toISOString(),
@@ -166,12 +166,22 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
       if (error) return json({ error: error.message }, 500);
+      // 서포터 배지 부여
+      await client
+        .from("profiles")
+        .update({ is_supporter: true })
+        .eq("id", userId);
     } else {
       const { error } = await client
         .from("subscriptions")
         .delete()
         .eq("user_id", userId);
       if (error) return json({ error: error.message }, 500);
+      // 서포터 배지 해제
+      await client
+        .from("profiles")
+        .update({ is_supporter: false })
+        .eq("id", userId);
     }
     return json({ ok: true });
   }

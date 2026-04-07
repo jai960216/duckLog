@@ -121,6 +121,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
                   child: Column(
                     children: [
                       _benefitRow(context, '사진 업로드 무제한'),
+                      _benefitRow(context, '고화질 사진 저장'),
                       _benefitRow(context, '도감 무제한'),
                       _benefitRow(context, '도감 아이템 무제한'),
                       _benefitRow(context, '서포터 배지'),

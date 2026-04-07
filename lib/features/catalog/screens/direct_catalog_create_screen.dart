@@ -5,6 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/services/goods_service.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/catalog_service.dart';
 import '../widgets/catalog_setup_form.dart';
@@ -29,7 +30,9 @@ class _DirectCatalogCreateScreenState
     required List<CharacterSetupData> characters,
     required String? coverUrl,
     required XFile? newCoverPhoto,
+    required double coverFitX,
     required double coverFitY,
+    required double coverScale,
   }) async {
     try {
       final service = ref.read(catalogServiceProvider);
@@ -64,7 +67,9 @@ class _DirectCatalogCreateScreenState
         category: category,
         workTag: workTag,
         coverUrl: finalCoverUrl,
+        coverFitX: coverFitX,
         coverFitY: coverFitY,
+        coverScale: coverScale,
         visibility: visibility,
         characters: charData,
       );
@@ -108,6 +113,7 @@ class _DirectCatalogCreateScreenState
       ),
       body: CatalogSetupForm(
         characters: const [],
+        isPro: ref.read(isProProvider).valueOrNull ?? false,
         onSubmit: _createCatalog,
       ),
     );

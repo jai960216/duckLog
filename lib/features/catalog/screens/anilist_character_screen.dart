@@ -7,6 +7,7 @@ import '../../../config/colors.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../goods/services/goods_service.dart';
+import '../../subscription/services/subscription_service.dart';
 import '../../subscription/widgets/pro_upsell_dialog.dart';
 import '../services/anilist_figure_service.dart';
 import '../../calendar/services/igdb_service.dart';
@@ -180,7 +181,9 @@ class _AnilistCharacterScreenState
     required List<CharacterSetupData> characters,
     required String? coverUrl,
     required XFile? newCoverPhoto,
+    required double coverFitX,
     required double coverFitY,
+    required double coverScale,
   }) async {
     try {
       final service = ref.read(catalogServiceProvider);
@@ -216,7 +219,9 @@ class _AnilistCharacterScreenState
         category: category,
         workTag: workTag ?? _workTitle,
         coverUrl: finalCoverUrl,
+        coverFitX: coverFitX,
         coverFitY: coverFitY,
+        coverScale: coverScale,
         visibility: visibility,
         characters: charData,
       );
@@ -952,6 +957,7 @@ class _AnilistCharacterScreenState
       initialWorkTag: title,
       initialCoverUrl: _coverUrl,
       characters: _selectedSetupChars,
+      isPro: ref.read(isProProvider).valueOrNull ?? false,
       onSubmit: _createCatalog,
     );
   }

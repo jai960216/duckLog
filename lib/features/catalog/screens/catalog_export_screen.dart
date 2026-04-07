@@ -466,20 +466,36 @@ class _ExportWidget extends StatelessWidget {
                 child: OverflowBox(
                   maxHeight: 280,
                   alignment: Alignment.center,
-                  child: CachedNetworkImage(
-                    imageUrl: catalog.coverUrl!,
-                    height: 280,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    alignment: Alignment(0, catalog.coverFitY * 2 - 1),
-                    errorWidget: (_, e, s) => Container(
-                      height: 100,
-                      color: DuckColors.surface,
-                      child: const Center(
-                        child: Icon(PhosphorIconsBold.image,
-                            color: DuckColors.textLight, size: 32),
-                      ),
-                    ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final maxTx = constraints.maxWidth *
+                          (catalog.coverScale - 1) / 2;
+                      final tx = (1 - catalog.coverFitX * 2) * maxTx;
+                      return Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.identity()
+                          ..translate(tx, 0.0)
+                          ..scale(
+                              catalog.coverScale, catalog.coverScale),
+                        child: CachedNetworkImage(
+                          imageUrl: catalog.coverUrl!,
+                          height: 280,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          alignment: Alignment(
+                              0, catalog.coverFitY * 2 - 1),
+                          errorWidget: (_, e, s) => Container(
+                            height: 100,
+                            color: DuckColors.surface,
+                            child: const Center(
+                              child: Icon(PhosphorIconsBold.image,
+                                  color: DuckColors.textLight,
+                                  size: 32),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
