@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/catalog.dart';
@@ -127,7 +129,10 @@ class FeedService {
 
   /// Fetch recommended goods with relevance scoring.
   /// Signals: same work tag (+3), same category (+2), friend (+2),
-  /// like count (+1 per 5 likes, max +3), recency (+1 if < 7 days)
+  /// like count (+1 per 5 likes, max +2), recency (max +2, linear decay over 30d)
+  /// Penalties: already liked (-3)
+  /// Candidate sources: same-work followers + friends + owners of liked goods
+  /// Tied scores are shuffled for variety.
   Future<List<FeedItem>> getRecommendedFeed(
       {int page = 0, int pageSize = 50}) async {
     if (_userId == null) return [];
@@ -206,8 +211,33 @@ class FeedService {
           .toSet();
     }
 
-    // 친구도 후보에 추가
-    final candidateUserIds = {...relatedUserIds, ...friendIds};
+    // 좋아요 이력 기반 후보 확장: 내가 좋아요한 굿즈의 소유자도 후보에 추가
+    Set<String> likeBasedUserIds = {};
+    final myLikes = await _client
+        .from('likes')
+        .select('goods_id')
+        .eq('user_id', _userId!)
+        .order('created_at', ascending: false)
+        .limit(100);
+    final likedGoodsIds =
+        (myLikes as List).map((r) => r['goods_id'] as String).toList();
+    if (likedGoodsIds.isNotEmpty) {
+      final likedGoods = await _client
+          .from('goods')
+          .select('user_id')
+          .inFilter('id', likedGoodsIds)
+          .neq('user_id', _userId!);
+      likeBasedUserIds = (likedGoods as List)
+          .map((r) => r['user_id'] as String)
+          .toSet();
+    }
+
+    // 친구 + 같은 팔로우 + 좋아요 기반 유저 모두 후보에 추가
+    final candidateUserIds = {
+      ...relatedUserIds,
+      ...friendIds,
+      ...likeBasedUserIds,
+    };
     if (candidateUserIds.isEmpty) return [];
 
     // 2. 후보 유저들의 굿즈 조회 (넉넉하게 가져와서 스코어링)
@@ -278,19 +308,24 @@ class FeedService {
         score += 2;
       }
 
-      // 좋아요 인기도 (+1 per 5 likes, max +3)
-      score += (likeCount / 5).clamp(0, 3).toDouble();
+      // 좋아요 인기도 (+1 per 5 likes, max +2 — 낮춰서 인기글 쏠림 방지)
+      score += (likeCount / 5).clamp(0, 2).toDouble();
 
-      // 최신 글 보너스 (7일 이내 +1)
-      if (now.difference(goods.createdAt).inDays < 7) {
-        score += 1;
+      // 연속적 시간 감쇠 (최대 +2, 30일에 걸쳐 선형 감소)
+      final daysOld = now.difference(goods.createdAt).inHours / 24.0;
+      score += (2.0 - (daysOld / 15.0)).clamp(0.0, 2.0);
+
+      // 이미 좋아요한 글 감점 (-3) — 새로운 콘텐츠 우선 노출
+      if (likedIds.contains(goods.id)) {
+        score -= 3;
       }
 
       scored.add((item, score));
     }
 
-    // 4. 스코어 내림차순 정렬 → 페이지네이션
+    // 4. 스코어 내림차순 정렬 + 동점 구간 셔플
     scored.sort((a, b) => b.$2.compareTo(a.$2));
+    _shuffleTiedScores(scored);
 
     final from = page * pageSize;
     final to = (from + pageSize).clamp(0, scored.length);
@@ -382,5 +417,27 @@ class FeedService {
         .eq('goods_id', goodsId)
         .maybeSingle();
     return response != null;
+  }
+
+  /// 동점 구간을 셔플하여 같은 점수의 글이 매번 다른 순서로 노출되도록 함
+  void _shuffleTiedScores(List<(FeedItem, double)> scored) {
+    if (scored.length <= 1) return;
+    final rng = Random();
+    int i = 0;
+    while (i < scored.length) {
+      int j = i + 1;
+      // 점수 차이 0.1 이하는 동점으로 간주
+      while (j < scored.length &&
+          (scored[i].$2 - scored[j].$2).abs() < 0.1) {
+        j++;
+      }
+      if (j - i > 1) {
+        // 동점 구간 셔플
+        final sub = scored.sublist(i, j);
+        sub.shuffle(rng);
+        scored.setRange(i, j, sub);
+      }
+      i = j;
+    }
   }
 }

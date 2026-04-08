@@ -34,6 +34,16 @@ final catalogItemsProvider =
   },
 );
 
+/// 다른 유저의 도감 아이템 조회 — (catalogId, ownerUserId)
+final catalogItemsForUserProvider = FutureProvider.autoDispose
+    .family<List<CatalogItem>, ({String catalogId, String userId})>(
+  (ref, params) async {
+    final service = ref.read(catalogServiceProvider);
+    return await service.getItems(params.catalogId,
+        targetUserId: params.userId);
+  },
+);
+
 final catalogCharactersProvider =
     FutureProvider.autoDispose.family<List<CatalogCharacter>, String>(
   (ref, catalogId) async {
@@ -47,6 +57,17 @@ final catalogGroupedItemsProvider = FutureProvider.autoDispose
   (ref, catalogId) async {
     final service = ref.read(catalogServiceProvider);
     return await service.getGroupedItems(catalogId);
+  },
+);
+
+/// 다른 유저의 도감 그룹 아이템 조회 — (catalogId, ownerUserId)
+final catalogGroupedItemsForUserProvider = FutureProvider.autoDispose.family<
+    ({List<CatalogCharacter> characters, List<CatalogItem> ungrouped}),
+    ({String catalogId, String userId})>(
+  (ref, params) async {
+    final service = ref.read(catalogServiceProvider);
+    return await service.getGroupedItems(params.catalogId,
+        targetUserId: params.userId);
   },
 );
 
@@ -75,7 +96,7 @@ class CatalogService {
   Future<Catalog> createCatalog({
     required String name,
     String? description,
-    String? category,
+    List<String> categories = const [],
     String? workTag,
     String? coverUrl,
     double coverFitX = 0.5,
@@ -95,7 +116,7 @@ class CatalogService {
       'user_id': _userId,
       'name': name,
       'description': description,
-      'category': category,
+      'category': categories.isNotEmpty ? categories.join(',') : null,
       'work_tag': workTag,
       'cover_url': coverUrl,
       'cover_fit_x': coverFitX,
@@ -140,7 +161,9 @@ class CatalogService {
     final catalogs = <Catalog>[];
     for (final row in response as List) {
       var catalog = Catalog.fromJson(row);
-      final progress = await _getCatalogProgress(catalog.id);
+      // 다른 유저의 도감이므로 소유자의 수집 상태를 조회
+      final progress = await _getCatalogProgress(catalog.id,
+          targetUserId: catalog.userId);
       catalog = catalog.copyWith(
         totalItems: progress['total'],
         collectedItems: progress['collected'],
@@ -154,7 +177,10 @@ class CatalogService {
     final response =
         await _client.from('catalogs').select().eq('id', id).single();
     var catalog = Catalog.fromJson(response);
-    final progress = await _getCatalogProgress(catalog.id);
+    // 내 도감이면 내 수집 상태, 남의 도감이면 소유자의 수집 상태
+    final isOwner = catalog.userId == _userId;
+    final progress = await _getCatalogProgress(catalog.id,
+        targetUserId: isOwner ? null : catalog.userId);
     catalog = catalog.copyWith(
       totalItems: progress['total'],
       collectedItems: progress['collected'],
@@ -335,9 +361,9 @@ class CatalogService {
   // ── Grouped Items ──
 
   Future<({List<CatalogCharacter> characters, List<CatalogItem> ungrouped})>
-      getGroupedItems(String catalogId) async {
+      getGroupedItems(String catalogId, {String? targetUserId}) async {
     final characters = await getCharacters(catalogId);
-    final items = await getItems(catalogId);
+    final items = await getItems(catalogId, targetUserId: targetUserId);
 
     if (characters.isEmpty) {
       return (characters: <CatalogCharacter>[], ungrouped: items);
@@ -376,6 +402,7 @@ class CatalogService {
     String? characterId,
     String? description,
     String? photoUrl,
+    String? category,
     int sortOrder = 0,
     SubscriptionService? subscriptionService,
   }) async {
@@ -390,6 +417,7 @@ class CatalogService {
       'name': name,
       'description': description,
       'photo_url': photoUrl,
+      'category': category,
       'sort_order': sortOrder,
     };
     final response =
@@ -401,7 +429,9 @@ class CatalogService {
     return CatalogItem.fromJson(response);
   }
 
-  Future<List<CatalogItem>> getItems(String catalogId) async {
+  /// [targetUserId]가 주어지면 해당 유저의 수집 상태를, 없으면 현재 유저의 수집 상태를 조회
+  Future<List<CatalogItem>> getItems(String catalogId,
+      {String? targetUserId}) async {
     final response = await _client
         .from('catalog_items')
         .select()
@@ -409,11 +439,12 @@ class CatalogService {
         .order('sort_order', ascending: true)
         .order('created_at', ascending: true);
 
-    // Get user's collection status for these items
+    // Get collection status for target user (or current user)
+    final queryUserId = targetUserId ?? _userId;
     final collectionResponse = await _client
         .from('catalog_collections')
         .select('catalog_item_id, collected_at')
-        .eq('user_id', _userId)
+        .eq('user_id', queryUserId)
         .eq('catalog_id', catalogId);
 
     final collectedMap = <String, DateTime>{};
@@ -496,17 +527,19 @@ class CatalogService {
 
   // ── Progress ──
 
-  Future<Map<String, int>> _getCatalogProgress(String catalogId) async {
+  Future<Map<String, int>> _getCatalogProgress(String catalogId,
+      {String? targetUserId}) async {
     final itemsResponse = await _client
         .from('catalog_items')
         .select('id')
         .eq('catalog_id', catalogId);
     final total = (itemsResponse as List).length;
 
+    final queryUserId = targetUserId ?? _userId;
     final collectedResponse = await _client
         .from('catalog_collections')
         .select('id')
-        .eq('user_id', _userId)
+        .eq('user_id', queryUserId)
         .eq('catalog_id', catalogId);
     final collected = (collectedResponse as List).length;
 
@@ -520,7 +553,7 @@ class CatalogService {
   Future<Catalog> createCatalogWithItems({
     required String name,
     String? description,
-    String? category,
+    List<String> categories = const [],
     String? workTag,
     String? coverUrl,
     double coverFitX = 0.5,
@@ -533,7 +566,7 @@ class CatalogService {
     final catalog = await createCatalog(
       name: name,
       description: description,
-      category: category,
+      categories: categories,
       workTag: workTag,
       coverUrl: coverUrl,
       coverFitX: coverFitX,
@@ -558,6 +591,7 @@ class CatalogService {
           'name': item['name'] as String,
           'description': item['description'] as String?,
           'photo_url': item['photo_url'] as String?,
+          'category': item['category'] as String?,
           'sort_order': entry.key,
         };
       }).toList();
@@ -573,7 +607,7 @@ class CatalogService {
   Future<Catalog> createCatalogWithCharacters({
     required String name,
     String? description,
-    String? category,
+    List<String> categories = const [],
     String? workTag,
     String? coverUrl,
     double coverFitX = 0.5,
@@ -586,7 +620,7 @@ class CatalogService {
     final catalog = await createCatalog(
       name: name,
       description: description,
-      category: category,
+      categories: categories,
       workTag: workTag,
       coverUrl: coverUrl,
       coverFitX: coverFitX,
@@ -630,6 +664,7 @@ class CatalogService {
               'character_id': charId,
               'name': item['name'] as String,
               'photo_url': item['photo_url'] as String?,
+              'category': item['category'] as String?,
               'sort_order': entry.key,
             };
           }).toList();

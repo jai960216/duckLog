@@ -3,7 +3,8 @@ class Catalog {
   final String userId;
   final String name;
   final String? description;
-  final String? category;
+  /// 다중 카테고리 (DB에는 콤마구분 문자열로 저장)
+  final List<String> categories;
   final String? workTag;
   final String? coverUrl;
   final double coverFitX;
@@ -22,7 +23,7 @@ class Catalog {
     required this.userId,
     required this.name,
     this.description,
-    this.category,
+    this.categories = const [],
     this.workTag,
     this.coverUrl,
     this.coverFitX = 0.5,
@@ -40,13 +41,26 @@ class Catalog {
 
   bool get isOwner => false; // Set externally via copyWith
 
+  /// 하위 호환: 단일 카테고리가 필요한 곳에서 첫 번째 값 반환
+  String? get category => categories.isNotEmpty ? categories.first : null;
+
+  /// DB 저장용 콤마구분 문자열
+  String? get categoryString =>
+      categories.isNotEmpty ? categories.join(',') : null;
+
+  /// 콤마구분 문자열 → List<String>
+  static List<String> _parseCategories(String? raw) {
+    if (raw == null || raw.isEmpty) return [];
+    return raw.split(',').where((s) => s.isNotEmpty).toList();
+  }
+
   factory Catalog.fromJson(Map<String, dynamic> json) {
     return Catalog(
       id: json['id'] as String,
       userId: json['user_id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
-      category: json['category'] as String?,
+      categories: _parseCategories(json['category'] as String?),
       workTag: json['work_tag'] as String?,
       coverUrl: json['cover_url'] as String?,
       coverFitX: (json['cover_fit_x'] as num?)?.toDouble() ?? 0.5,
@@ -63,7 +77,7 @@ class Catalog {
       'user_id': userId,
       'name': name,
       'description': description,
-      'category': category,
+      'category': categoryString,
       'work_tag': workTag,
       'cover_url': coverUrl,
       'cover_fit_x': coverFitX,
@@ -76,7 +90,7 @@ class Catalog {
   Catalog copyWith({
     String? name,
     String? description,
-    String? category,
+    List<String>? categories,
     String? workTag,
     String? coverUrl,
     double? coverFitX,
@@ -91,7 +105,7 @@ class Catalog {
       userId: userId,
       name: name ?? this.name,
       description: description ?? this.description,
-      category: category ?? this.category,
+      categories: categories ?? this.categories,
       workTag: workTag ?? this.workTag,
       coverUrl: coverUrl ?? this.coverUrl,
       coverFitX: coverFitX ?? this.coverFitX,

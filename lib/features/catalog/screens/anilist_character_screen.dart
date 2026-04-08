@@ -175,7 +175,7 @@ class _AnilistCharacterScreenState
 
   Future<void> _createCatalog({
     required String name,
-    required String? category,
+    required List<String> categories,
     required String? workTag,
     required String visibility,
     required List<CharacterSetupData> characters,
@@ -209,14 +209,14 @@ class _AnilistCharacterScreenState
           'external_id': c.externalId,
           'items': c.items
               .where((i) => i.name.trim().isNotEmpty)
-              .map((i) => {'name': i.name})
+              .map((i) => {'name': i.name, 'category': i.category})
               .toList(),
         });
       }
 
       final catalog = await service.createCatalogWithCharacters(
         name: name,
-        category: category,
+        categories: categories,
         workTag: workTag ?? _workTitle,
         coverUrl: finalCoverUrl,
         coverFitX: coverFitX,
@@ -953,7 +953,7 @@ class _AnilistCharacterScreenState
 
     return CatalogSetupForm(
       initialName: defaultName,
-      initialCategory: 'figure',
+      initialCategories: const ['figure'],
       initialWorkTag: title,
       initialCoverUrl: _coverUrl,
       characters: _selectedSetupChars,

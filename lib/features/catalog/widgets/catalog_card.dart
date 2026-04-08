@@ -88,14 +88,14 @@ class CatalogCard extends StatelessWidget {
                 const SizedBox(height: 6),
 
                 // Category + work tag chips
-                if (catalog.category != null || catalog.workTag != null)
+                if (catalog.categories.isNotEmpty || catalog.workTag != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Wrap(
                       spacing: 6,
                       children: [
-                        if (catalog.category != null)
-                          _chip(Goods.categoryLabel(catalog.category!)),
+                        ...catalog.categories.map((cat) =>
+                          _chip(Goods.categoryLabel(cat))),
                         if (catalog.workTag != null) _chip(catalog.workTag!),
                       ],
                     ),

@@ -119,10 +119,13 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
     ref.invalidate(myCatalogsProvider);
   }
 
-  void _navigateToDetail(String catalogId) async {
+  void _navigateToDetail(String catalogId, {String? ownerUserId}) async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => CatalogDetailScreen(catalogId: catalogId),
+        builder: (_) => CatalogDetailScreen(
+          catalogId: catalogId,
+          ownerUserId: ownerUserId,
+        ),
       ),
     );
     if (result == true) {
@@ -245,7 +248,8 @@ class _CatalogListScreenState extends ConsumerState<CatalogListScreen>
               final catalog = catalogs[index];
               return CatalogCard(
                 catalog: catalog,
-                onTap: () => _navigateToDetail(catalog.id),
+                onTap: () => _navigateToDetail(catalog.id,
+                    ownerUserId: catalog.userId),
               );
             },
           ),

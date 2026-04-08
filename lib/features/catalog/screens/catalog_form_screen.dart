@@ -31,7 +31,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
   final _descriptionController = TextEditingController();
   final _workTagController = TextEditingController();
 
-  String? _selectedCategory;
+  List<String> _selectedCategories = [];
   String _visibility = 'private';
   String? _coverUrl;
   XFile? _newCoverPhoto;
@@ -53,7 +53,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
       _nameController.text = c.name;
       _descriptionController.text = c.description ?? '';
       _workTagController.text = c.workTag ?? '';
-      _selectedCategory = c.category;
+      _selectedCategories = List<String>.from(c.categories);
       _visibility = c.visibility;
       _coverUrl = c.coverUrl;
       _coverFitX = c.coverFitX;
@@ -130,7 +130,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
           'description': _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
-          'category': _selectedCategory,
+          'category': _selectedCategories.isNotEmpty ? _selectedCategories.join(',') : null,
           'work_tag': _workTagController.text.trim().isEmpty
               ? null
               : _workTagController.text.trim(),
@@ -146,7 +146,7 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
-          category: _selectedCategory,
+          categories: _selectedCategories,
           workTag: _workTagController.text.trim().isEmpty
               ? null
               : _workTagController.text.trim(),
@@ -487,16 +487,26 @@ class _CatalogFormScreenState extends ConsumerState<CatalogFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('카테고리', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        const Text(
+          '여러 개 선택할 수 있어요',
+          style: TextStyle(fontSize: 12, color: DuckColors.textSub),
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: Goods.categories.map((cat) {
+            final selected = _selectedCategories.contains(cat);
             return DuckChip(
               label: Goods.categoryLabel(cat),
-              selected: _selectedCategory == cat,
+              selected: selected,
               onTap: () => setState(() {
-                _selectedCategory = _selectedCategory == cat ? null : cat;
+                if (selected) {
+                  _selectedCategories.remove(cat);
+                } else {
+                  _selectedCategories.add(cat);
+                }
               }),
             );
           }).toList(),

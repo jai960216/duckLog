@@ -24,8 +24,14 @@ import 'card_type_select_screen.dart';
 
 class CatalogDetailScreen extends ConsumerStatefulWidget {
   final String catalogId;
+  /// 다른 유저의 도감을 볼 때 소유자 ID를 전달 (null이면 내 도감)
+  final String? ownerUserId;
 
-  const CatalogDetailScreen({super.key, required this.catalogId});
+  const CatalogDetailScreen({
+    super.key,
+    required this.catalogId,
+    this.ownerUserId,
+  });
 
   @override
   ConsumerState<CatalogDetailScreen> createState() =>
@@ -37,8 +43,15 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
   bool _isPicking = false;
 
   void _invalidateAll() {
-    ref.invalidate(catalogItemsProvider(widget.catalogId));
-    ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
+    if (widget.ownerUserId != null) {
+      ref.invalidate(catalogItemsForUserProvider(
+          (catalogId: widget.catalogId, userId: widget.ownerUserId!)));
+      ref.invalidate(catalogGroupedItemsForUserProvider(
+          (catalogId: widget.catalogId, userId: widget.ownerUserId!)));
+    } else {
+      ref.invalidate(catalogItemsProvider(widget.catalogId));
+      ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
+    }
     if (mounted) setState(() => _changed = true);
   }
 
@@ -306,7 +319,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
     final charSetupList = characters.map((ch) {
       final charItems = items
           .where((i) => i.characterId == ch.id)
-          .map((i) => ItemSetupData(id: i.id, name: i.name))
+          .map((i) => ItemSetupData(id: i.id, name: i.name, category: i.category))
           .toList();
       return CharacterSetupData(
         id: ch.id,
@@ -322,7 +335,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
         builder: (_) => _CharacterCatalogEditScreen(
           catalogId: widget.catalogId,
           initialName: catalog.name,
-          initialCategory: catalog.category,
+          initialCategories: catalog.categories,
           initialWorkTag: catalog.workTag,
           initialCoverUrl: catalog.coverUrl,
           initialCoverFitX: catalog.coverFitX,
@@ -534,8 +547,11 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncGrouped =
-        ref.watch(catalogGroupedItemsProvider(widget.catalogId));
+    // 소유자 ID가 있으면 해당 유저의 수집 상태를 조회하는 프로바이더 사용
+    final asyncGrouped = widget.ownerUserId != null
+        ? ref.watch(catalogGroupedItemsForUserProvider(
+            (catalogId: widget.catalogId, userId: widget.ownerUserId!)))
+        : ref.watch(catalogGroupedItemsProvider(widget.catalogId));
     final currentUser = ref.watch(currentUserProvider);
 
     return FutureBuilder(
@@ -566,7 +582,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                   PopupMenuButton<String>(
                     icon: const Icon(PhosphorIconsBold.dotsThreeVertical),
                     onSelected: (value) {
-                      if (value == 'add') _addItem(category: catalog.category);
+                      if (value == 'add') _addItem(category: catalog.categories.isNotEmpty ? catalog.categories.first : null);
                       if (value == 'edit') _editCatalog();
                       if (value == 'export') _exportAsImage();
                       if (value == 'delete') _deleteCatalog();
@@ -578,7 +594,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                           children: [
                             const Icon(PhosphorIconsBold.plus, size: 18),
                             const SizedBox(width: 8),
-                            Text(catalog.category == 'card'
+                            Text(catalog.categories.contains('card')
                                 ? '카드 추가'
                                 : '아이템 추가'),
                           ],
@@ -660,7 +676,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                             ],
 
                             // Tags
-                            if (catalog?.category != null ||
+                            if ((catalog?.categories.isNotEmpty ?? false) ||
                                 catalog?.workTag != null)
                               Padding(
                                 padding:
@@ -669,11 +685,11 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
                                   spacing: 12,
                                   runSpacing: 8,
                                   children: [
-                                    if (catalog?.category != null)
+                                    ...?catalog?.categories.map((cat) =>
                                       DuckChip(
-                                        label: Goods.categoryLabel(
-                                            catalog!.category!),
+                                        label: Goods.categoryLabel(cat),
                                       ),
+                                    ),
                                     if (catalog?.workTag != null)
                                       DuckChip(
                                           label: catalog!.workTag!),
@@ -875,7 +891,7 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
 class _CharacterCatalogEditScreen extends ConsumerStatefulWidget {
   final String catalogId;
   final String? initialName;
-  final String? initialCategory;
+  final List<String> initialCategories;
   final String? initialWorkTag;
   final String? initialCoverUrl;
   final double initialCoverFitX;
@@ -887,7 +903,7 @@ class _CharacterCatalogEditScreen extends ConsumerStatefulWidget {
   const _CharacterCatalogEditScreen({
     required this.catalogId,
     this.initialName,
-    this.initialCategory,
+    this.initialCategories = const [],
     this.initialWorkTag,
     this.initialCoverUrl,
     this.initialCoverFitX = 0.5,
@@ -908,7 +924,7 @@ class _CharacterCatalogEditScreenState
 
   Future<void> _onSubmit({
     required String name,
-    required String? category,
+    required List<String> categories,
     required String? workTag,
     required String visibility,
     required List<CharacterSetupData> characters,
@@ -934,7 +950,7 @@ class _CharacterCatalogEditScreenState
       // 1. Update catalog metadata
       await service.updateCatalog(widget.catalogId, {
         'name': name,
-        'category': category,
+        'category': categories.isNotEmpty ? categories.join(',') : null,
         'work_tag': workTag,
         'cover_url': finalCoverUrl,
         'cover_fit_x': coverFitX,
@@ -1006,6 +1022,7 @@ class _CharacterCatalogEditScreenState
             if (itemData.id != null) {
               await service.updateItem(itemData.id!, {
                 'name': itemName,
+                'category': itemData.category,
                 'sort_order': ii,
               });
             } else {
@@ -1013,6 +1030,7 @@ class _CharacterCatalogEditScreenState
                 catalogId: widget.catalogId,
                 characterId: charData.id,
                 name: itemName,
+                category: itemData.category,
                 sortOrder: ii,
                 subscriptionService: subService,
               );
@@ -1035,12 +1053,14 @@ class _CharacterCatalogEditScreenState
           );
 
           for (int ii = 0; ii < charData.items.length; ii++) {
-            final itemName = charData.items[ii].name.trim();
+            final itemData = charData.items[ii];
+            final itemName = itemData.name.trim();
             if (itemName.isNotEmpty) {
               await service.addItem(
                 catalogId: widget.catalogId,
                 characterId: ch.id,
                 name: itemName,
+                category: itemData.category,
                 sortOrder: ii,
                 subscriptionService: subService,
               );
@@ -1084,7 +1104,7 @@ class _CharacterCatalogEditScreenState
       ),
       body: CatalogSetupForm(
         initialName: widget.initialName,
-        initialCategory: widget.initialCategory,
+        initialCategories: widget.initialCategories,
         initialWorkTag: widget.initialWorkTag,
         initialCoverUrl: widget.initialCoverUrl,
         initialCoverFitX: widget.initialCoverFitX,
@@ -1093,7 +1113,7 @@ class _CharacterCatalogEditScreenState
         initialVisibility: widget.initialVisibility,
         characters: widget.characters,
         isEditing: true,
-        hideCharacters: widget.initialCategory == 'card',
+        hideCharacters: widget.initialCategories.contains('card'),
         isPro: ref.read(isProProvider).valueOrNull ?? false,
         isLoading: _isLoading,
         onSubmit: _onSubmit,

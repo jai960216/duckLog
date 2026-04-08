@@ -78,7 +78,7 @@ class _MfcSearchScreenState extends ConsumerState<MfcSearchScreen> {
       final catalog = await service.createCatalogWithItems(
         name: '$_username 피규어 컬렉션 (${selected.length}개)',
         description: 'MFC 컬렉션에서 가져옴',
-        category: 'figure',
+        categories: const ['figure'],
         coverUrl: selected.first.imageUrl,
         items: items,
       );

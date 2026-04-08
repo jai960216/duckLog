@@ -40,6 +40,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
   final List<String> _photoUrls = [];
   final List<XFile> _newPhotos = [];
   bool _isLoading = false;
+  bool _submitted = false;
 
   // Catalog linking
   String? _linkedCatalogItemId;
@@ -77,22 +78,28 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
     final draft = await DraftService.loadDraft();
     if (draft == null || !mounted) return;
 
+    final completed = await DraftService.isCompleted();
+
     final shouldRestore = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('임시 저장된 기록이 있어요'),
-        content: const Text('이전에 작성하던 내용을 불러올까요?'),
+        title: Text(completed
+            ? '같은 종류의 굿즈를 등록할까요?'
+            : '작성 중이던 내용이 있어요'),
+        content: Text(completed
+            ? '이전에 등록한 정보를 불러와서 빠르게 입력할 수 있어요.'
+            : '이전에 작성하던 내용을 불러올까요?'),
         actions: [
           TextButton(
             onPressed: () {
               DraftService.clearDraft();
               Navigator.pop(ctx, false);
             },
-            child: const Text('삭제'),
+            child: Text(completed ? '새로 작성' : '삭제'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('불러오기'),
+            child: Text(completed ? '불러오기' : '이어서 작성'),
           ),
         ],
       ),
@@ -130,7 +137,7 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
   }
 
   Future<void> _saveDraft() async {
-    if (_isEditing) return;
+    if (_isEditing || _submitted) return;
     if (_nameController.text.trim().isEmpty) return;
     await DraftService.saveDraft(
       name: _nameController.text.trim(),
@@ -171,7 +178,10 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
           _linkedCatalogName = result.$1.name;
           _linkedItemName = result.$2.name;
           _visibility = result.$1.visibility;
-          if (result.$1.category != null) {
+          // 아이템 카테고리 우선, 없으면 도감 카테고리
+          if (result.$2.category != null) {
+            _selectedCategory = result.$2.category;
+          } else if (result.$1.category != null) {
             _selectedCategory = result.$1.category;
           }
           if (result.$1.workTag != null) {
@@ -374,8 +384,9 @@ class _GoodsInputScreenState extends ConsumerState<GoodsInputScreen> {
         }
       }
 
-      // 저장 성공 시 드래프트 삭제
-      await DraftService.clearDraft();
+      // 저장 성공 시 완료 표시 (연속 등록용 데이터 유지)
+      await DraftService.markCompleted();
+      _submitted = true;
 
       if (mounted) {
         Navigator.of(context).pop(true);

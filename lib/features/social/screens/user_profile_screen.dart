@@ -326,6 +326,7 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
                             MaterialPageRoute(
                               builder: (_) => CatalogDetailScreen(
                                 catalogId: catalog.id,
+                                ownerUserId: widget.userId,
                               ),
                             ),
                           );

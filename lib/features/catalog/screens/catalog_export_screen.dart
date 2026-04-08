@@ -518,14 +518,14 @@ class _ExportWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 // Tags
-                if (catalog.workTag != null || catalog.category != null)
+                if (catalog.workTag != null || catalog.categories.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Text(
                       [
                         if (catalog.workTag != null) catalog.workTag!,
-                        if (catalog.category != null)
-                          Goods.categoryLabel(catalog.category!),
+                        ...catalog.categories.map((cat) =>
+                          Goods.categoryLabel(cat)),
                       ].join(' · '),
                       style: const TextStyle(
                         fontSize: 13,

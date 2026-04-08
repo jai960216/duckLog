@@ -96,6 +96,7 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
             catalogId: widget.catalogId!,
             name: item['name']!,
             photoUrl: item['photo_url'],
+            category: 'card',
             subscriptionService: subService,
           );
         }
@@ -109,7 +110,7 @@ class _TcgSearchScreenState extends ConsumerState<TcgSearchScreen>
         final catalog = await service.createCatalogWithItems(
           name: name,
           description: '${widget.tcgType.label} $name (${cards.length}장)',
-          category: 'card',
+          categories: const ['card'],
           coverUrl: effectiveCoverUrl,
           items: items,
         );

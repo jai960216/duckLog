@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../../config/colors.dart';
 import '../../../shared/models/catalog_item.dart';
+import '../../../shared/models/goods.dart';
 import '../../../shared/utils/constants.dart';
 import '../../../shared/utils/image_quality.dart';
 import '../../../shared/utils/profanity_filter.dart';
@@ -35,6 +36,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
   final _nameController = TextEditingController();
 
   String? _photoUrl;
+  String? _selectedCategory;
   XFile? _newPhoto;
   bool _isLoading = false;
   bool _quickAddMode = false;
@@ -49,6 +51,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
       final item = widget.existingItem!;
       _nameController.text = item.name;
       _photoUrl = item.photoUrl;
+      _selectedCategory = item.category;
     }
   }
 
@@ -91,6 +94,7 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
         await service.updateItem(widget.existingItem!.id, {
           'name': _nameController.text.trim(),
           'photo_url': photoUrl,
+          'category': _selectedCategory,
         });
         if (mounted) Navigator.of(context).pop(true);
       } else {
@@ -100,13 +104,14 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
           characterId: widget.characterId,
           name: _nameController.text.trim(),
           photoUrl: photoUrl,
+          category: _selectedCategory,
           subscriptionService: subService,
         );
 
         _hasAdded = true;
 
         if (_quickAddMode) {
-          // Reset for next item
+          // Reset for next item (keep category for convenience)
           _nameController.clear();
           setState(() {
             _newPhoto = null;
@@ -209,6 +214,25 @@ class _CatalogItemFormScreenState extends ConsumerState<CatalogItemFormScreen> {
                 if (v == null || v.trim().isEmpty) return '아이템 이름을 입력해주세요';
                 return ProfanityFilter.validate(v);
               },
+              ),
+              const SizedBox(height: 20),
+
+              // Category
+              Text('카테고리', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: Goods.categories.map((cat) {
+                  final selected = _selectedCategory == cat;
+                  return DuckChip(
+                    label: Goods.categoryLabel(cat),
+                    selected: selected,
+                    onTap: () => setState(() {
+                      _selectedCategory = selected ? null : cat;
+                    }),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 32),
 

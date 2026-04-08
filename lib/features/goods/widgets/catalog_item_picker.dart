@@ -226,7 +226,7 @@ class _CatalogItemPickerSheetState
                                       itemName: item.name,
                                       visibility: group.catalog.visibility,
                                       characterName: characterName,
-                                      category: group.catalog.category,
+                                      category: item.category,
                                       workTag: group.catalog.workTag ?? group.catalog.name,
                                     ),
                                   );

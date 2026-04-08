@@ -36,6 +36,7 @@ class DraftService {
       'catalogItemName': catalogItemName ?? '',
       'catalogName': catalogName ?? '',
       'savedAt': DateTime.now().toIso8601String(),
+      'completed': false,
     });
   }
 
@@ -64,6 +65,18 @@ class DraftService {
     final box = await _openBox();
     final name = box.get('name', defaultValue: '') as String;
     return name.isNotEmpty;
+  }
+
+  /// 등록 완료 후 호출 — draft 데이터는 유지하되 완료 플래그만 세움
+  static Future<void> markCompleted() async {
+    final box = await _openBox();
+    await box.put('completed', true);
+  }
+
+  /// draft가 등록 완료된 굿즈인지 여부
+  static Future<bool> isCompleted() async {
+    final box = await _openBox();
+    return box.get('completed', defaultValue: false) as bool;
   }
 
   static Future<void> clearDraft() async {

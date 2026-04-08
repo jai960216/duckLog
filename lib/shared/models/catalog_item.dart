@@ -5,6 +5,7 @@ class CatalogItem {
   final String name;
   final String? description;
   final String? photoUrl;
+  final String? category;
   final int sortOrder;
   final DateTime createdAt;
 
@@ -19,6 +20,7 @@ class CatalogItem {
     required this.name,
     this.description,
     this.photoUrl,
+    this.category,
     this.sortOrder = 0,
     required this.createdAt,
     this.isCollected = false,
@@ -33,6 +35,7 @@ class CatalogItem {
       name: json['name'] as String,
       description: json['description'] as String?,
       photoUrl: json['photo_url'] as String?,
+      category: json['category'] as String?,
       sortOrder: json['sort_order'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -45,6 +48,7 @@ class CatalogItem {
       'name': name,
       'description': description,
       'photo_url': photoUrl,
+      'category': category,
       'sort_order': sortOrder,
     };
   }
@@ -55,6 +59,8 @@ class CatalogItem {
     String? name,
     String? description,
     String? photoUrl,
+    String? category,
+    bool clearCategory = false,
     int? sortOrder,
     bool? isCollected,
     DateTime? collectedAt,
@@ -66,6 +72,7 @@ class CatalogItem {
       name: name ?? this.name,
       description: description ?? this.description,
       photoUrl: photoUrl ?? this.photoUrl,
+      category: clearCategory ? null : (category ?? this.category),
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt,
       isCollected: isCollected ?? this.isCollected,

@@ -15,8 +15,9 @@ import '../screens/anilist_character_picker_screen.dart';
 class ItemSetupData {
   String? id; // 기존 아이템 ID (null이면 신규)
   String name;
+  String? category; // 아이템별 카테고리
 
-  ItemSetupData({this.id, required this.name});
+  ItemSetupData({this.id, required this.name, this.category});
 }
 
 /// 캐릭터+아이템 편집 데이터 (UI 전용)
@@ -41,7 +42,7 @@ class CharacterSetupData {
 /// 도감 설정 공용 위젯 — 생성 Step 2 / 수정 모드 공유
 class CatalogSetupForm extends StatefulWidget {
   final String? initialName;
-  final String? initialCategory;
+  final List<String> initialCategories;
   final String? initialWorkTag;
   final String initialVisibility;
   final List<CharacterSetupData> characters;
@@ -55,7 +56,7 @@ class CatalogSetupForm extends StatefulWidget {
   final bool isLoading;
   final Future<void> Function({
     required String name,
-    required String? category,
+    required List<String> categories,
     required String? workTag,
     required String visibility,
     required List<CharacterSetupData> characters,
@@ -69,7 +70,7 @@ class CatalogSetupForm extends StatefulWidget {
   const CatalogSetupForm({
     super.key,
     this.initialName,
-    this.initialCategory,
+    this.initialCategories = const [],
     this.initialWorkTag,
     this.initialCoverUrl,
     this.initialCoverFitX = 0.5,
@@ -92,7 +93,7 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _workTagController;
-  String? _selectedCategory;
+  late List<String> _selectedCategories;
   late String _visibility;
   late List<CharacterSetupData> _characters;
   String? _coverUrl;
@@ -130,7 +131,7 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _workTagController = TextEditingController(text: widget.initialWorkTag ?? '');
-    _selectedCategory = widget.initialCategory;
+    _selectedCategories = List<String>.from(widget.initialCategories);
     _visibility = widget.initialVisibility;
     _coverUrl = widget.initialCoverUrl;
     _coverFitX = widget.initialCoverFitX;
@@ -185,7 +186,7 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
     try {
       await widget.onSubmit(
         name: _nameController.text.trim(),
-        category: _selectedCategory,
+        categories: _selectedCategories,
         workTag: workTag.isEmpty ? null : workTag,
         visibility: _visibility,
         characters: _characters,
@@ -402,7 +403,10 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
           ),
         ),
         footer: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 12, 0, 20),
+          padding: EdgeInsets.fromLTRB(
+            0, 12, 0,
+            20 + MediaQuery.of(context).viewPadding.bottom,
+          ),
           child: Column(
             children: [
               if (!widget.hideCharacters)
@@ -580,51 +584,61 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
           if (ch.items.isNotEmpty) ...[
             const SizedBox(height: 8),
             ...List.generate(ch.items.length, (ii) {
+              final item = ch.items[ii];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
+                child: Column(
                   children: [
-                    const SizedBox(width: 8),
-                    const Icon(PhosphorIconsBold.dotOutline,
-                        size: 12, color: DuckColors.textSub),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SizedBox(
-                        height: 36,
-                        child: TextField(
-                          controller: _itemController(ch.items[ii]),
-                          onChanged: (v) => ch.items[ii].name = v,
-                          style: const TextStyle(fontSize: 13),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8)),
-                              borderSide: BorderSide(
-                                  color: DuckColors.textLight, width: 1),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8)),
-                              borderSide: BorderSide(
-                                  color: DuckColors.textLight, width: 1),
+                    Row(
+                      children: [
+                        const SizedBox(width: 8),
+                        const Icon(PhosphorIconsBold.dotOutline,
+                            size: 12, color: DuckColors.textSub),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 36,
+                            child: TextField(
+                              controller: _itemController(item),
+                              onChanged: (v) => item.name = v,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(8)),
+                                  borderSide: BorderSide(
+                                      color: DuckColors.textLight, width: 1),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(8)),
+                                  borderSide: BorderSide(
+                                      color: DuckColors.textLight, width: 1),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        IconButton(
+                          onPressed: () =>
+                              _removeItemFromCharacter(charIndex, ii),
+                          icon: const Icon(PhosphorIconsBold.minus,
+                              size: 14, color: DuckColors.error),
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () =>
-                          _removeItemFromCharacter(charIndex, ii),
-                      icon: const Icon(PhosphorIconsBold.minus,
-                          size: 14, color: DuckColors.error),
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                      padding: EdgeInsets.zero,
+                    // 아이템 카테고리 선택
+                    Padding(
+                      padding: const EdgeInsets.only(left: 28, top: 4, bottom: 4),
+                      child: _buildItemCategoryChips(item),
                     ),
                   ],
                 ),
@@ -663,6 +677,48 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildItemCategoryChips(ItemSetupData item) {
+    return SizedBox(
+      height: 28,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: Goods.categories.map((cat) {
+          final selected = item.category == cat;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  item.category = selected ? null : cat;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? DuckColors.primaryLight
+                      : DuckColors.surface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: selected
+                      ? Border.all(color: DuckColors.primary, width: 1)
+                      : null,
+                ),
+                child: Text(
+                  Goods.categoryLabel(cat),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? DuckColors.primaryDark : DuckColors.textSub,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -947,17 +1003,27 @@ class _CatalogSetupFormState extends State<CatalogSetupForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('카테고리', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        const Text(
+          '여러 개 선택할 수 있어요',
+          style: TextStyle(fontSize: 12, color: DuckColors.textSub),
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: Goods.categories.map((cat) {
+            final selected = _selectedCategories.contains(cat);
             return DuckChip(
               label: Goods.categoryLabel(cat),
-              selected: _selectedCategory == cat,
+              selected: selected,
               onTap: () {
                 setState(() {
-                  _selectedCategory = _selectedCategory == cat ? null : cat;
+                  if (selected) {
+                    _selectedCategories.remove(cat);
+                  } else {
+                    _selectedCategories.add(cat);
+                  }
                 });
               },
             );

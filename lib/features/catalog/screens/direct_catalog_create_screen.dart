@@ -24,7 +24,7 @@ class _DirectCatalogCreateScreenState
     extends ConsumerState<DirectCatalogCreateScreen> {
   Future<void> _createCatalog({
     required String name,
-    required String? category,
+    required List<String> categories,
     required String? workTag,
     required String visibility,
     required List<CharacterSetupData> characters,
@@ -57,14 +57,14 @@ class _DirectCatalogCreateScreenState
           'external_id': c.externalId,
           'items': c.items
               .where((i) => i.name.trim().isNotEmpty)
-              .map((i) => {'name': i.name})
+              .map((i) => {'name': i.name, 'category': i.category})
               .toList(),
         });
       }
 
       final catalog = await service.createCatalogWithCharacters(
         name: name,
-        category: category,
+        categories: categories,
         workTag: workTag,
         coverUrl: finalCoverUrl,
         coverFitX: coverFitX,
