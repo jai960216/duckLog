@@ -63,6 +63,15 @@ const WEEKDAY_MAP: Record<number, string> = {
 
 Deno.serve(async (_req: Request) => {
   try {
+    // 인증: CRON_SECRET 또는 service_role_key만 허용
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const authHeader = _req.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+    if (token !== cronSecret && token !== serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+
     const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT")!);
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

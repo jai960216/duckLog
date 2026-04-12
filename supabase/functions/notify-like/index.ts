@@ -67,8 +67,22 @@
 
   Deno.serve(async (req: Request) => {
     try {
+      // 인증: WEBHOOK_SECRET 또는 service_role_key만 허용
+      const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const authHeader = req.headers.get("authorization");
+      const token = authHeader?.replace("Bearer ", "");
+      if (token !== webhookSecret && token !== serviceRoleKey) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      }
+
       const payload: WebhookPayload = await req.json();
       console.log("Received:", JSON.stringify(payload));
+
+      // Validate required fields
+      if (!payload.record?.user_id || !payload.record?.goods_id) {
+        return new Response(JSON.stringify({ error: "Invalid payload" }), { status: 400 });
+      }
 
       const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT")!);
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

@@ -1,9 +1,6 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import '../../../config/igdb_config.dart';
-import '../../../shared/utils/http_retry.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final igdbServiceProvider = Provider<IgdbService>((ref) {
   return IgdbService();
@@ -117,82 +114,26 @@ class IgdbCharacter {
 }
 
 class IgdbService {
-  static const _tokenEndpoint = 'https://id.twitch.tv/oauth2/token';
-  static const _apiEndpoint = 'https://api.igdb.com/v4';
-  static const _httpTimeout = Duration(seconds: 15);
-  static const _tokenMargin = Duration(seconds: 60);
+  final _client = Supabase.instance.client;
 
-  String? _accessToken;
-  DateTime? _tokenExpiry;
-  Completer<String>? _tokenCompleter; // 동시 요청 방지
+  bool get isConfigured =>
+      _client.auth.currentSession != null;
 
-  bool get isConfigured => IgdbConfig.isConfigured;
-
-  /// Twitch OAuth2 토큰 발급 (client_credentials)
-  /// 동시에 여러 요청이 들어와도 한 번만 토큰 발급
-  Future<String> _getToken() async {
-    if (_accessToken != null &&
-        _tokenExpiry != null &&
-        DateTime.now().isBefore(_tokenExpiry!)) {
-      return _accessToken!;
-    }
-
-    // 이미 토큰 발급 진행 중이면 결과 대기
-    if (_tokenCompleter != null) {
-      return _tokenCompleter!.future;
-    }
-
-    _tokenCompleter = Completer<String>();
-    try {
-      final response = await http.post(
-        Uri.parse(_tokenEndpoint),
-        body: {
-          'client_id': IgdbConfig.clientId,
-          'client_secret': IgdbConfig.clientSecret,
-          'grant_type': 'client_credentials',
-        },
-      ).timeout(_httpTimeout);
-
-      if (response.statusCode != 200) {
-        throw Exception('Twitch 인증 실패: ${response.statusCode}');
-      }
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      _accessToken = json['access_token'] as String;
-      // 만료 전 마진을 두어 네트워크 지연으로 인한 만료 방지
-      _tokenExpiry = DateTime.now()
-          .add(Duration(seconds: json['expires_in'] as int))
-          .subtract(_tokenMargin);
-      _tokenCompleter!.complete(_accessToken!);
-      return _accessToken!;
-    } catch (e) {
-      _accessToken = null;
-      _tokenExpiry = null;
-      _tokenCompleter!.completeError(e);
-      rethrow;
-    } finally {
-      _tokenCompleter = null;
-    }
-  }
-
-  /// IGDB API 호출 (5xx/타임아웃 자동 재시도)
+  /// Supabase Edge Function을 통해 IGDB API 호출
   Future<List<dynamic>> _query(String endpoint, String body) async {
-    final token = await _getToken();
-    final response = await HttpRetry.post(
-      Uri.parse('$_apiEndpoint/$endpoint'),
-      headers: {
-        'Client-ID': IgdbConfig.clientId,
-        'Authorization': 'Bearer $token',
-      },
-      body: body,
-      timeout: _httpTimeout,
+    final response = await _client.functions.invoke(
+      'igdb-proxy',
+      body: {'endpoint': endpoint, 'body': body},
     );
 
-    if (response.statusCode != 200) {
-      throw Exception('IGDB API error: ${response.statusCode}');
+    if (response.status != 200) {
+      throw Exception('IGDB proxy error: ${response.status}');
     }
 
-    return jsonDecode(response.body) as List<dynamic>;
+    final data = response.data;
+    if (data is List) return data;
+    if (data is String) return jsonDecode(data) as List<dynamic>;
+    throw Exception('Unexpected IGDB response type: ${data.runtimeType}');
   }
 
   /// 게임 검색

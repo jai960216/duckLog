@@ -15,7 +15,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  late Box _prefsBox;
+  Box? _prefsBox;
   bool _friendRequest = true;
   bool _like = true;
   bool _calendar = true;
@@ -29,12 +29,13 @@ class _NotificationSettingsScreenState
 
   Future<void> _loadPrefs() async {
     try {
-      _prefsBox = await Hive.openBox('notification_prefs');
+      final box = await Hive.openBox('notification_prefs');
+      _prefsBox = box;
       if (mounted) {
         setState(() {
-          _friendRequest = _prefsBox.get('friend_request', defaultValue: true);
-          _like = _prefsBox.get('like', defaultValue: true);
-          _calendar = _prefsBox.get('calendar', defaultValue: true);
+          _friendRequest = box.get('friend_request', defaultValue: true);
+          _like = box.get('like', defaultValue: true);
+          _calendar = box.get('calendar', defaultValue: true);
           _isLoading = false;
         });
       }
@@ -46,7 +47,8 @@ class _NotificationSettingsScreenState
   }
 
   Future<void> _save(String key, bool value) async {
-    await _prefsBox.put(key, value);
+    if (_prefsBox == null) return;
+    await _prefsBox!.put(key, value);
     await FcmService.instance.updateTopic(key, value);
   }
 

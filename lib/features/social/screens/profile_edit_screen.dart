@@ -96,7 +96,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       final client = ref.read(supabaseClientProvider);
       final userId = client.auth.currentUser?.id;
       if (userId == null) {
-        if (mounted) DuckSnackBar.error(context, '로그인이 필요해요');
+        if (mounted) {
+          DuckSnackBar.error(context, '로그인이 필요해요');
+          setState(() => _isLoading = false);
+        }
         return;
       }
       final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
@@ -136,7 +139,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       final client = ref.read(supabaseClientProvider);
       final userId = client.auth.currentUser?.id;
       if (userId == null) {
-        if (mounted) DuckSnackBar.error(context, '로그인이 필요해요');
+        if (mounted) {
+          DuckSnackBar.error(context, '로그인이 필요해요');
+          setState(() => _isLoading = false);
+        }
         return;
       }
       final nickname = _nicknameController.text.trim();

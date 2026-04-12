@@ -27,6 +27,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   XFile? _photo;
   Uint8List? _photoBytes;
   _ScanState _state = _ScanState.idle;
+  bool _isSaving = false;
 
   // Extracted data fields
   final _storeNameController = TextEditingController();
@@ -86,6 +87,9 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   }
 
   Future<void> _saveAsReceipt() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
     final service = ref.read(receiptServiceProvider);
 
     try {
@@ -131,6 +135,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (mounted) {
         DuckSnackBar.error(context, '저장에 실패했어요');
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -331,7 +337,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
           width: double.infinity,
           child: DuckButton(
             text: '영수증 저장',
-            onPressed: _saveAsReceipt,
+            isLoading: _isSaving,
+            onPressed: _isSaving ? null : _saveAsReceipt,
           ),
         ),
         const SizedBox(height: 12),

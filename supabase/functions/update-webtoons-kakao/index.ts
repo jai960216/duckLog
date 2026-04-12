@@ -27,6 +27,18 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // 인증: CRON_SECRET 또는 service_role_key만 허용
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.replace("Bearer ", "");
+  if (token !== cronSecret && token !== serviceRoleKey) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: corsHeaders,
+    });
+  }
+
   try {
     const supabase = getServiceClient();
     const webtoonMap = new Map<string, WebtoonRow>();

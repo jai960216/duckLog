@@ -118,7 +118,8 @@ class PurchaseService {
       if (kDebugMode) {
         debugPrint('Verifying purchase: ${purchase.productID}');
         debugPrint('Purchase status: ${purchase.status}');
-        debugPrint('Token: ${purchase.verificationData.serverVerificationData.substring(0, 20)}...');
+        final token = purchase.verificationData.serverVerificationData;
+        debugPrint('Token: ${token.length > 20 ? '${token.substring(0, 20)}...' : token}');
       }
 
       final response = await _client.functions.invoke(

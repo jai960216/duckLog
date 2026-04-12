@@ -16,13 +16,9 @@ final receiptFilterProvider = StateProvider<ReceiptFilter>((ref) {
 
 final receiptListProvider =
     FutureProvider.autoDispose<List<Receipt>>((ref) async {
-  try {
-    final service = ref.read(receiptServiceProvider);
-    final filter = ref.watch(receiptFilterProvider);
-    return await service.getReceipts(filter: filter);
-  } catch (e) {
-    return [];
-  }
+  final service = ref.read(receiptServiceProvider);
+  final filter = ref.watch(receiptFilterProvider);
+  return await service.getReceipts(filter: filter);
 });
 
 class ReceiptFilter {

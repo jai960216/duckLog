@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Google Play response:", JSON.stringify(data));
+    console.log("Google Play response state:", data.subscriptionState);
 
     // subscriptionsv2 응답: subscriptionState로 검증
     const state = data.subscriptionState;

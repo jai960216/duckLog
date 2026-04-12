@@ -112,10 +112,13 @@ Deno.serve(async (req) => {
   if (action === "search_users") {
     const query = url.searchParams.get("query") || "";
     if (!query.trim()) return json([]);
+    // Sanitize query to prevent PostgREST filter injection
+    const sanitized = query.replace(/[%_*,.()\\]/g, "");
+    if (!sanitized.trim()) return json([]);
     const { data, error } = await client
       .from("profiles")
       .select("id, nickname, avatar_url, is_verified, is_suspended, is_supporter")
-      .or(`nickname.ilike.%${query}%,friend_code.eq.${query}`)
+      .or(`nickname.ilike.%${sanitized}%,friend_code.eq.${sanitized}`)
       .limit(20);
     if (error) return json({ error: error.message }, 500);
     return json(data);

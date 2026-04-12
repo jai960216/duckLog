@@ -525,7 +525,7 @@ class _WorkSearchScreenState extends ConsumerState<WorkSearchScreen>
           child: isGame && !igdbConfigured
               ? const DuckEmptyState(
                   message:
-                      'IGDB API 설정이 필요해요.\nigdb_config.dart에 Twitch 자격증명을 입력해주세요.',
+                      '게임 검색을 사용하려면\n로그인이 필요해요.',
                   icon: PhosphorIconsBold.gear,
                 )
               : isWebtoon && !webtoonConfigured
@@ -1313,7 +1313,7 @@ Widget _webtoonNotConfigured() {
 
 Widget _igdbNotConfigured() {
   return const DuckEmptyState(
-    message: 'IGDB API 설정이 필요해요.\nigdb_config.dart에\nTwitch 자격증명을 입력해주세요.',
+    message: '게임 검색을 사용하려면\n로그인이 필요해요.',
     icon: PhosphorIconsBold.gear,
   );
 }

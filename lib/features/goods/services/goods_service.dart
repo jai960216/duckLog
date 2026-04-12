@@ -123,13 +123,18 @@ class GoodsFilter {
     DateTime? startDate,
     DateTime? endDate,
     int? page,
+    bool clearCategory = false,
+    bool clearWorkTag = false,
+    bool clearArtistTag = false,
+    bool clearStartDate = false,
+    bool clearEndDate = false,
   }) {
     return GoodsFilter(
-      category: category ?? this.category,
-      workTag: workTag ?? this.workTag,
-      artistTag: artistTag ?? this.artistTag,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      category: clearCategory ? null : (category ?? this.category),
+      workTag: clearWorkTag ? null : (workTag ?? this.workTag),
+      artistTag: clearArtistTag ? null : (artistTag ?? this.artistTag),
+      startDate: clearStartDate ? null : (startDate ?? this.startDate),
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
       page: page ?? this.page,
       pageSize: pageSize,
     );
@@ -175,15 +180,15 @@ class GoodsService {
       'catalog_item_id': catalogItemId,
     };
 
-    // purchase_place 컬럼이 DB에 없을 수 있으므로 포함해서 시도 후 실패 시 제외
     if (purchasePlace != null && purchasePlace.isNotEmpty) {
       try {
         final data = {...baseData, 'purchase_place': purchasePlace};
         final response =
             await _client.from('goods').insert(data).select().single();
         return Goods.fromJson(response);
-      } catch (_) {
-        // purchase_place 컬럼이 없을 수 있음 — 컬럼 없이 재시도
+      } catch (e) {
+        // purchase_place 컬럼이 없는 경우만 재시도, 다른 에러는 그대로 throw
+        if (!e.toString().contains('purchase_place')) rethrow;
       }
     }
 

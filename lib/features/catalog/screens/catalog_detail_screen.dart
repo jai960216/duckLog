@@ -41,6 +41,7 @@ class CatalogDetailScreen extends ConsumerStatefulWidget {
 class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
   bool _changed = false;
   bool _isPicking = false;
+  Future<dynamic>? _catalogFuture;
 
   void _invalidateAll() {
     if (widget.ownerUserId != null) {
@@ -52,7 +53,12 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
       ref.invalidate(catalogItemsProvider(widget.catalogId));
       ref.invalidate(catalogGroupedItemsProvider(widget.catalogId));
     }
-    if (mounted) setState(() => _changed = true);
+    if (mounted) {
+      setState(() {
+        _changed = true;
+        _catalogFuture = null; // force reload catalog data
+      });
+    }
   }
 
   /// 비소유자: 아이템 사진 크게 보기
@@ -554,9 +560,11 @@ class _CatalogDetailScreenState extends ConsumerState<CatalogDetailScreen> {
         : ref.watch(catalogGroupedItemsProvider(widget.catalogId));
     final currentUser = ref.watch(currentUserProvider);
 
+    _catalogFuture ??=
+        ref.read(catalogServiceProvider).getCatalogById(widget.catalogId);
+
     return FutureBuilder(
-      future:
-          ref.read(catalogServiceProvider).getCatalogById(widget.catalogId),
+      future: _catalogFuture,
       builder: (context, snapshot) {
         final catalog = snapshot.data;
         final isOwner = catalog != null &&
