@@ -2,8 +2,8 @@
 -- Pro 구독 시스템: 구독 테이블 + 월별 사용량 추적
 -- ============================================
 
--- 1. 구독 테이블
-CREATE TABLE subscriptions (
+-- 1. 구독 테이블 (schema.sql에서 이미 생성됨 — idempotent)
+CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE,
   plan TEXT NOT NULL DEFAULT 'free',
@@ -19,24 +19,28 @@ CREATE TABLE subscriptions (
 -- RLS for subscriptions
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own subscription" ON subscriptions;
 CREATE POLICY "Users can view own subscription"
   ON subscriptions FOR SELECT
   USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "Deny client insert on subscriptions" ON subscriptions;
 CREATE POLICY "Deny client insert on subscriptions"
   ON subscriptions FOR INSERT
   WITH CHECK (false);
 
+DROP POLICY IF EXISTS "Deny client update on subscriptions" ON subscriptions;
 CREATE POLICY "Deny client update on subscriptions"
   ON subscriptions FOR UPDATE
   USING (false);
 
+DROP POLICY IF EXISTS "Users can delete own subscription" ON subscriptions;
 CREATE POLICY "Users can delete own subscription"
   ON subscriptions FOR DELETE
   USING (auth.uid() = user_id);
 
 -- 2. 월별 사용량 추적
-CREATE TABLE monthly_usage (
+CREATE TABLE IF NOT EXISTS monthly_usage (
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   year_month TEXT NOT NULL,
   photo_count INT DEFAULT 0,
